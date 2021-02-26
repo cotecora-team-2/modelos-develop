@@ -19,18 +19,20 @@ generated quantities {
   real<lower=0> sigma[2];
   real y_1_sim[n_1];
   real y_2_sim[n_2];
+  real dif;
+  real mayor_1;
 
   for(j in 1:2){
     mu[j] = normal_rng(media_params[1], media_params[2]);
     sigma[j] = fabs(normal_rng(0, sd_params));
   }
   for(i in 1:n_1){
-    y_1_sim[i] = normal_rng(mu[1], sigma[1]);
+    y_1_sim[i] = normal_rng(mu[1], 2.0 + sigma[1]);
   }
     for(i in 1:n_2){
-    y_2_sim[i] = normal_rng(mu[2], sigma[2]);
+    y_2_sim[i] = normal_rng(mu[2], 2.0 + sigma[2]);
   }
-  real dif = mu[1] - mu[2];
-  real mayor_1 = mu[1] > mu[2];
+  dif = mu[1] - mu[2];
+  mayor_1 = mu[1] > mu[2];
 }
 

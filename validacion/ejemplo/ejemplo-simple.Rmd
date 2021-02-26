@@ -8,6 +8,8 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+https://betanalpha.github.io/assets/case_studies/principled_bayesian_workflow.html
+
 ## Preparación
 
 ```{r}
@@ -17,12 +19,14 @@ library(posterior)
 library(tidyverse)
 library(patchwork)
 theme_set(theme_minimal())
-cb_palette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+cb_palette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
+                "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 ```
 
 ### Problema
 
-Queremos modelar la estatura de tenores de un coro.
+Queremos modelar la estatura de tenores y bajos de un coro, y queremos
+saber si sus estaturas son diferentes.
 
 ### Análisis conceptual
 
@@ -59,7 +63,7 @@ sed -n '/^transformed/,/\}/p' ./stan/modelo.stan
 En este caso simple, modelamos cada muestra con una distribución
 normal, cada una con parámetros a priori independientes. La versimilitud se construye como:
 
-$$y_{1,i} \sim N(\mu_1, \sigma_1), y_{2, j} \sim N(\mu_1, \sigma_1)$$
+$$y_{1,i} \sim N(\mu_1, \sigma_1), y_{2, j} \sim N(\mu_2, \sigma_2)$$
 donde las $y_{g,i}$ son todas independientes dados los parámetros respectivos. Ahora
 tenemos que establecer las distribuciones iniciales con la información disponible. 
 Por el momento no tenemos información de que haya alguna diferencia entre los grupos
@@ -69,7 +73,7 @@ Para las medias, usaremos una distribución que vaya de unos 1.60 a 1.80m (son c
 adultos de un coro):
 
 $$\mu_i \sim N(170, 5)$$
-Los cuantiles de esta distribuión son
+Los cuantiles de esta distribución son
 
 ```{r}
 quantile(rnorm(1000, 170, 5), probs = c(0.05, 0.5, 0.95))
@@ -85,7 +89,7 @@ $$\sigma_i \sim N^+(0, 6)$$
 Si simulamos 2 veces la desviación estándar ($2\sigma_i$):
 
 ```{r}
-quantile(2 * rnorm(1000, 0, 6) %>% abs, probs = c(0.05, 0.5, 0.95))
+quantile(2 + 2 * abs(rnorm(1000, 0, 6)), probs = c(0.05, 0.5, 0.95))
 ```
 Esta distribución quiźa tiene demasiado dispersión: hay una probabilidad de que la variabilidad
 dentro de cada grupo sea de 1 centímetro, y hasta 22 centímetros. Verificamos nuestros
@@ -111,7 +115,7 @@ ensemble <- modelo_inicial$sample(
     data = sim_ensemble_datos,
     iter_sampling = 100, iter_warmup = 0, 
     chains = 1,
-    refresh = 10, seed = 432,
+    refresh = 10, seed = 4322,
     fixed_param = TRUE)
   
 ```
@@ -119,17 +123,7 @@ ensemble <- modelo_inicial$sample(
 Ahora examinamos el ensamble. Por ejemplo, para una simulación:
 
 ```{r}
-histogramas_estaturas <- function(sims, sim_data, k = 10){
-  draws_df <- as_draws_df(sims$draws()) %>% 
-    nest(y_1 = contains("y_1"), y_2 = contains("y_2")) %>% 
-    mutate(y_1 = map(y_1, as.numeric), y_2 = map(y_2, as.numeric)) %>% 
-    filter(.draw <= k) %>% 
-    select(.draw, y_1, y_2) %>% 
-    pivot_longer(cols = any_of(c("y_1", "y_2")), names_to = "tipo", values_to = "estatura") %>% 
-    unnest(cols = estatura)
-  ggplot(draws_df, aes(x = estatura, fill = tipo)) + 
-    geom_histogram() + facet_wrap(~.draw)
-}
+source("R/resumenes.R")
 histogramas_estaturas(ensemble, sim_ensemble_datos, k = 20)
 ```
 
@@ -177,7 +171,8 @@ ajuste$cmdstan_diagnose()
 ```
 
 No detectamos ningún problema. Si detectamos problemas numéricos, podemos
-ajustar en orden de dificultad y costo típico: 1) parámetros del muestreador, 2) modelo, 3) diseño de recolección de datos
+ajustar en orden de dificultad y costo típico: 1) parámetros del muestreador, 2) 
+modelo, 3) diseño de recolección de datos
 
 ### Calibración algorítmica
 

@@ -23,10 +23,9 @@ transformed parameters {
 
 // The model to be estimated.
 model {
-  y_1 ~ normal(mu[1], sigma[1]);
-  y_2 ~ normal(mu[2], sigma[2]);
+  y_1 ~ normal(mu[1], 2.0 + sigma[1]);
+  y_2 ~ normal(mu[2], 2.0 + sigma[2]);
   mu ~ normal(media_params[1], media_params[2]);
   sigma ~ normal(0, sd_params);
 }
-
 
