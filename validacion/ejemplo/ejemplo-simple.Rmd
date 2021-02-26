@@ -1,0 +1,192 @@
+---
+title: "Ejemplo simple con stan"
+date: "2/25/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Preparación
+
+```{r}
+devtools::install_github("cotecora-team-2/quickcountmx")
+library(cmdstanr)
+library(posterior)
+library(tidyverse)
+library(patchwork)
+theme_set(theme_minimal())
+cb_palette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+```
+
+### Problema
+
+Queremos modelar la estatura de tenores de un coro.
+
+### Análisis conceptual
+
+Supondremos que tenemos una muestra seleccionada al azar 
+de medidas de estaturas de tenores y de bajos de un 
+coro particular. No tenemos covariables adicionales. Las estaturas están redondeadas a pulgadas. 
+Las distintas tesituras pueden requerir distintas formas de cuerpo, lo cual es posible
+que se refleje en las estaturas.
+
+### Espacio de observaciones
+
+Las únicas observaciones que esperamos son una lista de $n_1$ estaturas en pulgadas
+de tenores y $n_2$ estaturas de bajos. En el modelo podemos escribirlo con dos
+vectores separados (alternativamente, un solo vector con identificadores)
+
+
+```{bash}
+sed -n '/^data/,/\}/p' ./stan/modelo.stan
+```
+
+### Estadísticas resumen
+
+Las estadísticas resumen que nos interesan son los valores esperados de:
+
+  - La diferencia de medias entre los grupos
+  - Probabilidad posterior de que la media de un grupo sea mayor que la otra
+
+```{bash}
+sed -n '/^transformed/,/\}/p' ./stan/modelo.stan
+```
+
+### Desarrollo del modelo
+
+En este caso simple, modelamos cada muestra con una distribución
+normal, cada una con parámetros a priori independientes. La versimilitud se construye como:
+
+$$y_{1,i} \sim N(\mu_1, \sigma_1), y_{2, j} \sim N(\mu_1, \sigma_1)$$
+donde las $y_{g,i}$ son todas independientes dados los parámetros respectivos. Ahora
+tenemos que establecer las distribuciones iniciales con la información disponible. 
+Por el momento no tenemos información de que haya alguna diferencia entre los grupos
+de cantantes, así que pondremos la misma inicial para medias y desviaciones estándar.
+
+Para las medias, usaremos una distribución que vaya de unos 1.60 a 1.80m (son cantantes
+adultos de un coro):
+
+$$\mu_i \sim N(170, 5)$$
+Los cuantiles de esta distribuión son
+
+```{r}
+quantile(rnorm(1000, 170, 5), probs = c(0.05, 0.5, 0.95))
+```
+
+
+¿Qué sabemos acerca de la dispersión de las estaturas de un grupo de cantantes (hombres)? Dada
+una media (por ejemplo 170), no debería ser extremadamente sorprendente observar estaturas
+de 150 o de 190. Sería poco probable observar, por ejemplo variaciones más chicas de más menos
+dos centímetros de la media.
+
+$$\sigma_i \sim N^+(0, 6)$$
+Si simulamos 2 veces la desviación estándar ($2\sigma_i$):
+
+```{r}
+quantile(2 * rnorm(1000, 0, 6) %>% abs, probs = c(0.05, 0.5, 0.95))
+```
+Esta distribución quiźa tiene demasiado dispersión: hay una probabilidad de que la variabilidad
+dentro de cada grupo sea de 1 centímetro, y hasta 22 centímetros. Verificamos nuestros
+supuestos checando simulaciones del ensamble bayesiano (sin datos) para ver las consecuencias
+de nuestras decisiones de modelacion
+
+### Simular ensamble bayesiano
+
+
+```{r}
+sim_datos <- jsonlite::read_json("./datos/datos_prueba.json", simplifyVector = TRUE)
+parametros <- jsonlite::read_json("./datos/datos_inicial.json", simplifyVector = TRUE)
+print(parametros)
+print(sim_datos)
+```
+
+
+```{r}
+sim_ensemble_datos <- c(sim_datos, parametros)
+ruta <- file.path("./stan/simular_ensemble_modelo.stan")
+modelo_inicial <- cmdstan_model(ruta)
+ensemble <- modelo_inicial$sample(
+    data = sim_ensemble_datos,
+    iter_sampling = 100, iter_warmup = 0, 
+    chains = 1,
+    refresh = 10, seed = 432,
+    fixed_param = TRUE)
+  
+```
+
+Ahora examinamos el ensamble. Por ejemplo, para una simulación:
+
+```{r}
+histogramas_estaturas <- function(sims, sim_data, k = 10){
+  draws_df <- as_draws_df(sims$draws()) %>% 
+    nest(y_1 = contains("y_1"), y_2 = contains("y_2")) %>% 
+    mutate(y_1 = map(y_1, as.numeric), y_2 = map(y_2, as.numeric)) %>% 
+    filter(.draw <= k) %>% 
+    select(.draw, y_1, y_2) %>% 
+    pivot_longer(cols = any_of(c("y_1", "y_2")), names_to = "tipo", values_to = "estatura") %>% 
+    unnest(cols = estatura)
+  ggplot(draws_df, aes(x = estatura, fill = tipo)) + 
+    geom_histogram() + facet_wrap(~.draw)
+}
+histogramas_estaturas(ensemble, sim_ensemble_datos, k = 20)
+```
+
+Aunque los rangos parecen correctos, 
+
+- En algunos casos la dispersión es muy baja. 
+- Es poco creíble que la dispersión sea radicalmente distinta en cada uno de los grupos
+
+Estos defectos deben ser arreglados en el modelo + información inicial.
+
+### Ajustar al ensemble simulado
+
+Ahora probamos ajustar el modelo a las simulaciones. En este paso tenemos
+qué checar qué puede pasar incluso con las condiciones más extremas 
+que creemos que podemos encontrar. 
+
+Podemos probar con una simulación:
+
+```{r}
+num_iter <- 11
+y_sim <- ensemble$draws(c("y_1_sim", "y_2_sim"))
+sigma_sim_tbl <- ensemble$draws(c("mu", "sigma")) %>% as_draws_df()
+```
+
+
+```{r}
+ruta <- file.path("./stan/modelo.stan")
+modelo <- cmdstan_model(ruta)
+```
+
+
+```{r, message=FALSE, warning=FALSE}
+datos_1 <- c(sim_ensemble_datos, list("y_1" = y_sim[num_iter, , 1:20] %>% as.numeric, 
+                                      "y_2" = y_sim[num_iter, , 21:30] %>% as.numeric()))
+ajuste <- modelo$sample(data = datos_1, 
+                          seed = 2210,
+                          iter_sampling = 1000, iter_warmup = 1000,
+                          refresh = 0, 
+                          show_messages = FALSE)
+ajuste
+```
+
+```{r}
+ajuste$cmdstan_diagnose()
+```
+
+No detectamos ningún problema. Si detectamos problemas numéricos, podemos
+ajustar en orden de dificultad y costo típico: 1) parámetros del muestreador, 2) modelo, 3) diseño de recolección de datos
+
+### Calibración algorítmica
+
+
+### Calibración inferencial
+
+
+### Ajuste a las observaciones
+
+### Verificación posterior dentro de muestra
+
+### Siguientes pasos
