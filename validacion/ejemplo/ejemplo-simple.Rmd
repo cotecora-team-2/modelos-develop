@@ -176,9 +176,84 @@ modelo, 3) diseño de recolección de datos
 
 ### Calibración algorítmica
 
+Ahora checamos si recuperamos los parámetros de las simulaciones:
+
+```{r}
+param_sim_tbl <- ensemble$draws(c("mu[1]", "sigma[1]")) %>% as_draws_df()
+
+```
+
+
+```{r, warning = FALSE, message = FALSE, include = FALSE}
+ajustes_ensemble <- 
+  map(1:100, ~ ajustar_diagnosticos(.x, 
+        modelo = modelo, 
+        datos = c(sim_ensemble_datos, 
+                  list("y_1" = y_sim[.x, , 1:20] %>% as.numeric, 
+                      "y_2" = y_sim[.x, , 21:30] %>% as.numeric())),
+        params = param_sim_tbl[.x, ] %>% select(-.chain, -.iteration, -.draw) ), 
+        iter_warmup = 1000, iter_sample = 1000) %>% 
+  bind_rows()
+```
+
+En algunas corridas obtuvimos problemas numéricos:
+
+```{r}
+map(ajustes_ensemble$diagnosticos, "stdout") %>% str_detect("no problems detected") %>% 
+  table
+```
+
+
+
+Ahora checamos que recuperamos los parámetros apropiadamente:
+
+```{r}
+sbc_rank_sim <- ajustes_ensemble %>% select(sbc_rank) %>% unnest
+g_mu <- ggplot(sbc_rank_sim, aes(sample = `mu[1]`)) +
+  geom_qq(distribution = stats::qunif) +
+  geom_abline() +
+  labs(subtitle = "mu")
+g_sigma <- ggplot(sbc_rank_sim, aes(sample = `sigma[1]`)) +
+  geom_qq(distribution = stats::qunif) +
+  geom_abline() +
+  labs(subtitle = "sigma")
+g_dist + g_angulo
+```
+
+
 
 ### Calibración inferencial
 
+
+En el siguiente paso vemos las posibilidades de aprendizaje que nos da el modelo.
+En este punto, quisiéramos saber si aprendemos algo por encima de lo que ya 
+sabíamos.
+
+- Esto se mide con la **contracción**: cómo se compara la incertidumbre a priori
+con la posterior. Si la contracción es baja, el modelo está mal identificado o
+mal especificado. Comparamos las medias posteriores con el verdadero valor para diagnosticar si es solo mala identificación (estas dos medias son similares), o mal
+espcificación (están concentradas en lugares diferentes)
+
+- Cuando la contracción es alta, quiere decir que aprendemos del parámetro de
+interés. Sin embargo, si las posteriores varían mucho en dónde están concentradas
+en comparación a los verdaderos valores, esto indica sobreajuste (es variabilidad
+inducida por los datos).
+
+
+```{r}
+prior_sd_mu <- sd(rnorm(1000, 170, 5))
+calib_inf <- ajustes_ensemble %>%
+  unnest(cols = (params)) %>% 
+  mutate(post_media_mu = map_dbl(resumen, ~filter(.x, variable=="mu[1]") %>% pull(mean)),
+         post_sd_mu = map_dbl(resumen, ~ filter(.x, variable == "mu[1]") %>% pull(sd))) %>% 
+  mutate(z_score = (post_media_mu - `mu[1]`) / post_sd_mu) %>% 
+  mutate(contraccion = 1 - (post_sd_mu/prior_sd_mu)^2)
+```
+
+```{r}
+ggplot(calib_inf, aes(x = contraccion, y = z_score)) + geom_point(alpha = 0.5) +
+  xlim(c(0, 1))
+```
 
 ### Ajuste a las observaciones
 
