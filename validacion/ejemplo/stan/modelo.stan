@@ -29,3 +29,6 @@ model {
   sigma ~ normal(0, sd_params);
 }
 
+generated quantities {
+
+}

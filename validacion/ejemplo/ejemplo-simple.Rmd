@@ -217,7 +217,7 @@ g_sigma <- ggplot(sbc_rank_sim, aes(sample = `sigma[1]`)) +
   geom_qq(distribution = stats::qunif) +
   geom_abline() +
   labs(subtitle = "sigma")
-g_dist + g_angulo
+g_mu + g_sigma
 ```
 
 
@@ -257,6 +257,55 @@ ggplot(calib_inf, aes(x = contraccion, y = z_score)) + geom_point(alpha = 0.5) +
 
 ### Ajuste a las observaciones
 
+
+```{r, message=FALSE, warning=FALSE}
+set.seed(20021)
+y_1 <- filter(lattice::singer, voice.part %in% c("Tenor 1", "Tenor 2")) %>% 
+    sample_n(20) %>% 
+  mutate(estatura = 2.54 * height) %>% pull(estatura)
+y_2 <- filter(lattice::singer, voice.part %in% c("Bass 1", "Bass 2")) %>% 
+  sample_n(10) %>% 
+    mutate(estatura = 2.54 * height) %>% pull(estatura)
+
+datos <- c(sim_ensemble_datos, list("y_1" = y_1, 
+                                    "y_2" = y_2))
+datos$n_1 <- 20
+datos$n_2 <- 10
+ajuste <- modelo$sample(data = datos, 
+                          seed = 2210,
+                          iter_sampling = 5000, iter_warmup = 1000,
+                          refresh = 0, 
+                          show_messages = FALSE)
+ajuste
+```
+
+Checamos el resumen que nos interesa:
+
+```{r}
+sims_dif <- ajuste$draws("dif") %>% as_draws_df() %>% as_tibble()
+ggplot(sims_dif, aes(x = dif)) + geom_histogram() +
+  geom_vline(xintercept = 0, colour = "red")
+```
+Y vemos que tenemos alguna evidencia de que los bajos tienen mayor estatura
+que los tenores. La con alta probabilidad la diferencia va de 1 a 9 centímetros 
+de diferencia.
+
 ### Verificación posterior dentro de muestra
+
+Finalmente checamos si el ajuste del modelo
+
+Ahora podemos hacer la verificación más básica, que compara el ajustado
+con los valores reales. Esto nos indica problemas potenciales de desajuste que
+requieren reevaluar nuestro modelo. Estas verificaciones también se pueden
+hacer *fuera de la muestra* (predictivas), lo cual es más apropiado en algunos
+contextos (por ejemplo, si el propósito principal es predecir).
+
+  
+```{bash}
+sed -n '/^generated/,/\}/p' stan/modelo.stan
+```
+
+
+
 
 ### Siguientes pasos
