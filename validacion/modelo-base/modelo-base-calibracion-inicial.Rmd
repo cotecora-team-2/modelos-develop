@@ -23,7 +23,7 @@ cb_palette <- c("#000000", "#E69F00", "#56B4E9", "#009E73",
 ```
 
 ```{r}
-datos_ent <- conteo_2018 %>% filter(NOMBRE_ESTADO == "CHIHUAHUA") %>% 
+datos_ent <- conteo_2018 %>% filter(NOMBRE_ESTADO == "NAYARIT") %>% 
   # usar estratificacion anterior por ahora
   mutate(estrato_df = as.numeric(factor(estrato))) %>% 
   select(CLAVE_CASILLA, AMLO, estrato_df, ln = LISTA_NOMINAL_CASILLA, componente = .fittedPC1) %>% 
@@ -100,7 +100,7 @@ ggplot(resumen_estratos, aes(x = factor(estrato_df), y = prop_nominal)) +
   geom_jitter(alpha = 0.5)
 ```
 
-## Calibración algorítmica
+## Ajuste de ensemble simulado
 
 Calculamos el voto obtenido por cada candidato y checamos si recuperamos los
 valores considerando el tamaño de muestra que utilizaremos
@@ -109,18 +109,12 @@ valores considerando el tamaño de muestra que utilizaremos
 ```{r}
 ruta <- file.path("./stan/modelo.stan")
 modelo <- cmdstan_model(ruta)
+source("R/funciones_calibracion.R")
 ```
 
 ```{r}
-num_draw <- 229
-obtener_muestra <- function(num_draw, seed = 1){
-  sims_1 <- sims_casillas %>% filter(.draw == num_draw)
-  muestra_1 <- quickcountmx::select_sample_prop(sims_1, stratum = estrato_df, frac = 0.04, 
-                                                seed = seed)
-  list(y = muestra_1$y_f, N = length(muestra_1$y_f), stratum = muestra_1$estrato_df,
-       n = muestra_1$ln, x = x_f[muestra_1$no_casilla, , drop = FALSE])
-}
-datos_muestra <- obtener_muestra(num_draw, seed = 23)
+num_draw <- 2
+datos_muestra <- obtener_muestra(num_draw, frac = 0.15, seed = 23)
 ```
 
 
@@ -130,10 +124,10 @@ datos_muestra <- obtener_muestra(num_draw, seed = 23)
 datos_1 <- c(sim_ensemble_datos, datos_muestra)
 ajuste <- modelo$sample(data = datos_1, 
                           seed = 2211,
-                          iter_sampling = 500, iter_warmup = 1200,
+                          iter_sampling = 500, iter_warmup = 1000,
                           refresh = 250, 
                           chains = 4, 
-                          adapt_delta = 0.95,
+                          adapt_delta = 0.975,
                           parallel_chains = 4, 
                           show_messages = FALSE)
 ajuste$summary(variables = c("beta_0", "beta", "beta_bn"))
@@ -157,4 +151,40 @@ ggplot(y_sims, aes(x = y_out/valores_sim$y_out[1] - 1)) +
   geom_vline(xintercept = 0, colour = "red")
 ```
 
+## Calibración algorítmica
+
+```{r, warning = FALSE, message = FALSE, include = FALSE}
+ajustes_ensemble <- 
+  map(1:100, ~ ajustar_diagnosticos(.x, frac = 0.15,
+        modelo = modelo, 
+        datos = sim_ensemble_datos,
+        params = sims_ensemble_tbl[.x, ] %>% as_tibble %>% select(y_out, beta_0) ),
+        adapt_delta = 0.975,
+        iter_warmup = 1000, iter_sample = 500) %>% 
+  bind_rows()
+```
+
+En algunas corridas obtuvimos problemas numéricos?
+
+```{r}
+map(ajustes_ensemble$diagnosticos, "stdout") %>% str_detect("no problems detected") %>% 
+  table
+```
+
+
+
+Ahora checamos que recuperamos los parámetros apropiadamente:
+
+```{r}
+sbc_rank_sim <- ajustes_ensemble %>% select(sbc_rank) %>% unnest
+g_1 <- ggplot(sbc_rank_sim, aes(sample = y_out)) +
+  geom_qq(distribution = stats::qunif) +
+  geom_abline() +
+  labs(subtitle = "y_out")
+g_2 <- ggplot(sbc_rank_sim, aes(sample = beta_0)) +
+  geom_qq(distribution = stats::qunif) +
+  geom_abline() +
+  labs(subtitle = "beta_0")
+g_1 + g_2
+```
 

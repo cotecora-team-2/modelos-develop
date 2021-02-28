@@ -49,7 +49,7 @@ $$y_{i} \sim \textrm{NegBin} (n_{i}\theta_i, n_i\theta_i\phi_{s(i)})$$
 la parametrización de la binomial negativa que seleccionamos es en la que
 
 - El valor esperado de $y_i$ es $n_i\theta_i$
-- La varianza es $n_i\theta_i\left(1 + \phi_{s(i)}^{-1}\right)$
+- La varianza es $n_i\theta_i\left(1 + \frac{1}{\phi_{s(i)}}\right)$
 
 ### Valor esperado
 
