@@ -1,0 +1,115 @@
+---
+title: "Modelo jerárquico"
+author: "M. Anzarut, F. González, I. Meza, T. Ortiz"
+date: "2/26/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+parametros <- jsonlite::read_json("./datos/datos_inicial.json", simplifyVector = TRUE)
+
+```
+
+## Análisis conceptual
+
+Buscamos predecir la proporción de votos para un candidato
+a gobernador (Elección 2021) usando votos registrados en una muestra 
+estratificada proporcional de las casillas del estado correspondiente.
+
+Cada estrato $s$ tiene $N_s$ casillas. Denotamos
+por: 
+
+- $y_{i}$ los votos obtenidos para un candidato particular en la casilla $i$ 
+- $s(i)$ es el estrato al que pertenece la casilla $i$
+- $n_{i}$ el tamaño de la lista nominal para la casilla $i$ 
+- $obs_{i}$ es una variable indicadora si la casilla $i$ está en la muestra
+- $x_{i,p}$ es una matriz de covariables asociados a cada casilla $j$
+
+## Datos y estadísticas resumen
+
+Los datos que tendremos antes de observar la muestra son: la estratificación, incluyendo
+el número de casillas por estrato para la población, 
+ las covariables $x_{i,p}$, así como la lista nominal de cada casilla $n_i$.
+
+Con la muestra observaremos el número de votos para cada candidatos $y_i$ para algunas casillas, junto con los
+estratos $s(i)$ a la que pertenecen. 
+
+Los resúmenes de interés principal son:
+
+1. El número total de votos $\sum_i y_i$, donde la suma es sobre todas las casillas.
+2. La proporción de votos del candidato sobre la lista nominal $\frac{\sum y_i}{\sum n_i}$
+
+
+## Definición del modelo
+
+Modelamos el número de votos obtenidos para el candidato como
+$$y_{i} \sim \textrm{NegBin} (n_{i}\theta_i, n_i\theta_i\phi_{s(i)})$$
+
+la parametrización de la binomial negativa que seleccionamos es en la que
+
+- El valor esperado de $y_i$ es $n_i\theta_i$
+- La varianza es $n_i\theta_i\left(1 + \phi_{s(i)}^{-1}\right)$
+
+### Valor esperado
+
+Ponemos 
+$$\alpha_i = n_i\theta_i,$$ 
+y finalmente
+$$\theta_i = \textrm{invlogit}( \beta_{s(i)}^0 + \beta_{}^t x_{i}),$$ 
+donde $x_{i}$ es el vector
+de covariables centradas y estandarizadas para la casilla $i$. Estas covariables
+se conocen de antemano.
+
+Consideramos los coeficientes
+$\beta$ fijos sobre todo el estado, sin embargo, la ordenada al origen depende
+del estado:
+
+$$\beta_{s}^0 \sim N(\beta_{0}, \sigma)$$
+y 
+
+
+
+
+$$\beta_0\sim N(`r parametros$beta_0_param[1]`, `r parametros$beta_0_param[2]`), \sigma\sim N^{+}(0,`r parametros$sigma_param`)$$
+
+```{r}
+inv_logit <- function(z){
+  exp(z) / (1 + exp(z))
+}
+b_0 <- inv_logit(rnorm(1000, parametros$beta_0_param[1], parametros$beta_0_param[2])) 
+quantile(b_0, probs = c(0.05, 0.5, 0.95))
+```
+
+
+
+Para los coeficientes  $\beta_j$, 
+$$\beta_j \sim N(0,1)$$
+
+### Varianza y sobredispersión
+
+Para la sobredispersión de la binomial negativa, ponemos
+$$\phi_s \sim \textrm{Gamma}(`r parametros$beta_bn_param[1]`, `r parametros$beta_bn_param[2]`)$$
+Recordamos que la varianza es
+$$n_i\theta_i\left(1 + \phi_{s(i)}^{-1}\right)$$
+De modo que el factor que multiplica a $n_i\theta_i$ va típicamente de un poco más de
+1 (en cuyo caso la varianza $n_i\theta_i$) hasta alrededor de 20, que tiene sobredispersión considerablemente mayor en relación a la binomial.
+
+```{r}
+x <- rgamma(10000, 1, 0.5)
+z <- 1/x 
+quantile(z, probs = c(0.025, 0.5, 0.975))
+```
+En stan, el modelo es:
+
+```{bash}
+cat stan/modelo.stan
+```
+
+Y el modelo para hacer simulaciones a partir de las iniciales:
+
+```{bash}
+cat stan/simular_ensemble_modelo.stan
+```
+
+

@@ -1,0 +1,5 @@
+{
+  "beta_0_param": [-2, 1],
+  "sigma_param":[1.0],
+  "beta_bn_param": [1, 0.5]
+}

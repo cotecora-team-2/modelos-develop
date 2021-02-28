@@ -1,0 +1,160 @@
+---
+title: "Calibración del ensemble"
+author: "M. Anzarut, F. González, I. Meza, T. Ortiz"
+date: "2/26/2021"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+devtools::install_github("cotecora-team-2/quickcountmx")
+library(cmdstanr)
+library(posterior)
+library(tidyverse)
+library(patchwork)
+library(quickcountmx)
+theme_set(theme_minimal())
+cb_palette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
+                "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+```
+
+```{r}
+datos_ent <- conteo_2018 %>% filter(NOMBRE_ESTADO == "CHIHUAHUA") %>% 
+  # usar estratificacion anterior por ahora
+  mutate(estrato_df = as.numeric(factor(estrato))) %>% 
+  select(CLAVE_CASILLA, AMLO, estrato_df, ln = LISTA_NOMINAL_CASILLA, componente = .fittedPC1) %>% 
+  mutate(in_sample = 0, y_f = 0) %>% 
+  mutate(ln = ifelse(ln == 0, 600, ln)) %>% 
+  mutate(no_casilla = row_number())
+sim_datos_lista <- list()
+x <- datos_ent %>% 
+  select(ln, componente) %>% 
+  as.matrix()
+x_f <- scale(x)
+sim_datos_lista$x_f <- x_f
+sim_datos_lista$N_f <- nrow(x_f)
+sim_datos_lista$y_f <- datos_ent$y_f
+sim_datos_lista$n_covariates_f <- ncol(x_f)
+sim_datos_lista$n_strata_f <- datos_ent$estrato_df %>% unique %>% length()
+sim_datos_lista$in_sample <- datos_ent$in_sample
+sim_datos_lista$n_f <- datos_ent$ln
+sim_datos_lista$stratum_f <- datos_ent$estrato_df
+jsonlite::write_json(sim_datos_lista, "./datos/datos_prueba.json")
+```
+
+
+```{r}
+sim_datos <- jsonlite::read_json("./datos/datos_prueba.json", simplifyVector = TRUE)
+parametros <- jsonlite::read_json("./datos/datos_inicial.json", simplifyVector = TRUE)
+print(parametros)
+#print(sim_datos)
+```
+
+
+```{r}
+sim_ensemble_datos <- c(sim_datos, parametros)
+ruta <- file.path("./stan/simular_ensemble_modelo.stan")
+modelo_inicial <- cmdstan_model(ruta)
+ensemble <- modelo_inicial$sample(
+    data = sim_ensemble_datos,
+    iter_sampling = 1000, iter_warmup = 0, 
+    chains = 1,
+    refresh = 100, seed = 4322,
+    fixed_param = TRUE)
+  
+```
+
+## Propiedades del ensemble
+
+#### Resumen de porcentaje de voto de la lista nominal
+
+```{r}
+sims_ensemble_tbl <- ensemble$draws() %>% as_draws_df()
+total_nominal <- sim_ensemble_datos$n_f %>% sum
+votos_tbl <- sims_ensemble_tbl %>% select(.draw, y_out) %>% 
+  mutate(prop_nominal = y_out / total_nominal)
+qplot(sims_ensemble_tbl$y_out / total_nominal, binwidth = 0.025 )
+```
+```{r}
+sims_casillas <- sims_ensemble_tbl %>% 
+  nest(y_sim = contains("y_f_sim")) %>% 
+  select(.draw, sigma, y_sim) %>% 
+  mutate(y_sim = map(y_sim, 
+                        function(x) { tibble(y_f = as.numeric(x), no_casilla = 1:ncol(x)) })) %>% 
+  unnest(y_sim)
+sims_casillas <- sims_casillas %>% left_join(datos_ent %>% select(no_casilla, estrato_df, ln)) 
+sims_casillas
+```
+Resumen por estrato
+
+```{r}
+resumen_estratos <- sims_casillas %>% group_by(.draw, estrato_df) %>% 
+  summarise(total_votos = sum(y_f), total_nominal = sum(ln)) %>% 
+  mutate(prop_nominal = total_votos / total_nominal)
+ggplot(resumen_estratos, aes(x = factor(estrato_df), y = prop_nominal)) +
+  geom_boxplot() +
+  geom_jitter(alpha = 0.5)
+```
+
+## Calibración algorítmica
+
+Calculamos el voto obtenido por cada candidato y checamos si recuperamos los
+valores considerando el tamaño de muestra que utilizaremos
+
+
+```{r}
+ruta <- file.path("./stan/modelo.stan")
+modelo <- cmdstan_model(ruta)
+```
+
+```{r}
+num_draw <- 229
+obtener_muestra <- function(num_draw, seed = 1){
+  sims_1 <- sims_casillas %>% filter(.draw == num_draw)
+  muestra_1 <- quickcountmx::select_sample_prop(sims_1, stratum = estrato_df, frac = 0.04, 
+                                                seed = seed)
+  list(y = muestra_1$y_f, N = length(muestra_1$y_f), stratum = muestra_1$estrato_df,
+       n = muestra_1$ln, x = x_f[muestra_1$no_casilla, , drop = FALSE])
+}
+datos_muestra <- obtener_muestra(num_draw, seed = 23)
+```
+
+
+
+
+```{r, message=FALSE, warning=FALSE}
+datos_1 <- c(sim_ensemble_datos, datos_muestra)
+ajuste <- modelo$sample(data = datos_1, 
+                          seed = 2211,
+                          iter_sampling = 500, iter_warmup = 1200,
+                          refresh = 250, 
+                          chains = 4, 
+                          adapt_delta = 0.95,
+                          parallel_chains = 4, 
+                          show_messages = FALSE)
+ajuste$summary(variables = c("beta_0", "beta", "beta_bn"))
+```
+```{r}
+valores_sim <- sims_ensemble_tbl %>% as_tibble() %>% filter(.draw == num_draw) 
+valores_sim
+```
+
+```{r}
+ajuste$cmdstan_diagnose()
+```
+
+
+```{r}
+y_sims <- ajuste$draws() %>% as_draws_df() %>% 
+  as_tibble()
+mean(y_sims$y_out)/sum(datos_ent$ln)
+ggplot(y_sims, aes(x = y_out/valores_sim$y_out[1] - 1)) +
+  geom_histogram() +
+  geom_vline(xintercept = 0, colour = "red")
+```
+
+
