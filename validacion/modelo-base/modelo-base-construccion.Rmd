@@ -63,7 +63,7 @@ se conocen de antemano.
 
 Consideramos los coeficientes
 $\beta$ fijos sobre todo el estado, sin embargo, la ordenada al origen depende
-del estado:
+del estrato:
 
 $$\beta_{s}^0 \sim N(\beta_{0}, \sigma)$$
 y 

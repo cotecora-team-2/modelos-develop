@@ -11,7 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r}
-devtools::install_github("cotecora-team-2/quickcountmx")
+#devtools::install_github("cotecora-team-2/quickcountmx")
 library(cmdstanr)
 library(posterior)
 library(tidyverse)
@@ -43,7 +43,7 @@ sim_datos_lista$n_strata_f <- datos_ent$estrato_df %>% unique %>% length()
 sim_datos_lista$in_sample <- datos_ent$in_sample
 sim_datos_lista$n_f <- datos_ent$ln
 sim_datos_lista$stratum_f <- datos_ent$estrato_df
-jsonlite::write_json(sim_datos_lista, "./datos/datos_prueba.json")
+jsonlite::write_json(sim_datos_lista, "datos/datos_prueba.json")
 ```
 
 
@@ -113,21 +113,22 @@ source("R/funciones_calibracion.R")
 ```
 
 ```{r}
-num_draw <- 2
-datos_muestra <- obtener_muestra(num_draw, frac = 0.15, seed = 23)
+num_draw <- 3
+datos_muestra <- obtener_muestra(num_draw, frac = 0.15, seed = 13)
+datos_1 <- c(sim_ensemble_datos, datos_muestra)
 ```
 
 
 
 
 ```{r, message=FALSE, warning=FALSE}
-datos_1 <- c(sim_ensemble_datos, datos_muestra)
 ajuste <- modelo$sample(data = datos_1, 
                           seed = 2211,
-                          iter_sampling = 500, iter_warmup = 1000,
+                          iter_sampling = 250, iter_warmup = 500,
                           refresh = 250, 
                           chains = 4, 
-                          adapt_delta = 0.975,
+                          adapt_delta = 0.99,
+                          max_treedepth = 12,
                           parallel_chains = 4, 
                           show_messages = FALSE)
 ajuste$summary(variables = c("beta_0", "beta", "beta_bn"))
@@ -153,15 +154,21 @@ ggplot(y_sims, aes(x = y_out/valores_sim$y_out[1] - 1)) +
 
 ## Calibración algorítmica
 
-```{r, warning = FALSE, message = FALSE, include = FALSE}
+```{r, warning = FALSE, message = FALSE}
+reajustar_ensemble <- FALSE
+if(reajustar_ensemble){
 ajustes_ensemble <- 
   map(1:100, ~ ajustar_diagnosticos(.x, frac = 0.15,
         modelo = modelo, 
         datos = sim_ensemble_datos,
-        params = sims_ensemble_tbl[.x, ] %>% as_tibble %>% select(y_out, beta_0) ),
-        adapt_delta = 0.975,
-        iter_warmup = 1000, iter_sample = 500) %>% 
+        params = sims_ensemble_tbl[.x, ] %>% as_tibble %>% select(y_out, beta_0),
+        adapt_delta = 0.99, max_treedepth = 12,
+        iter_warmup = 500, iter_sampling = 250)) %>% 
   bind_rows()
+  write_rds(ajustes_ensemble, "salidas/ensemble_ajustes.rds")
+} else {
+  ajustes_ensemble <- read_rds("salidas/ensemble_ajustes.rds")
+}
 ```
 
 En algunas corridas obtuvimos problemas numéricos?
@@ -176,7 +183,7 @@ map(ajustes_ensemble$diagnosticos, "stdout") %>% str_detect("no problems detecte
 Ahora checamos que recuperamos los parámetros apropiadamente:
 
 ```{r}
-sbc_rank_sim <- ajustes_ensemble %>% select(sbc_rank) %>% unnest
+sbc_rank_sim <- ajustes_ensemble %>% select(sbc_rank) %>% unnest(cols = sbc_rank)
 g_1 <- ggplot(sbc_rank_sim, aes(sample = y_out)) +
   geom_qq(distribution = stats::qunif) +
   geom_abline() +
@@ -187,4 +194,35 @@ g_2 <- ggplot(sbc_rank_sim, aes(sample = beta_0)) +
   labs(subtitle = "beta_0")
 g_1 + g_2
 ```
+
+## Calibración inferencial
+
+
+
+```{r}
+prior_sd <- sd(sims_ensemble_tbl$y_out)
+variable <- "y_out"
+calib_inf_tbl <- ajustes_ensemble %>%
+  unnest(cols = (params)) %>% 
+  mutate(post_media = map_dbl(resumen, ~filter(.x, variable=="y_out") %>% pull(mean)),
+         post_sd = map_dbl(resumen, ~ filter(.x, variable == "y_out") %>% pull(sd))) %>% 
+  mutate(z_score = (post_media - y_out) / post_sd) %>% 
+  mutate(contraccion = 1 - (post_sd/prior_sd)^2)
+```
+
+```{r}
+ggplot(calib_inf_tbl, aes(x = contraccion, y = z_score)) + geom_point(alpha = 0.5) +
+  xlim(c(0, 1))
+```
+
+```{r}
+calib_cv <- ajustes_ensemble %>%
+  unnest(cols = (params)) %>% 
+  mutate(post_media = map_dbl(resumen, ~filter(.x, variable=="y_out") %>% pull(mean)),
+         post_sd = map_dbl(resumen, ~ filter(.x, variable == "y_out") %>% pull(sd))) %>% 
+  mutate(coef_variacion_post = post_sd / post_media )
+quantile(100 * calib_cv$coef_variacion_post, probs = c(0.01, 0.05, 0.5, 0.90, 0.99)) %>% 
+  round(., 1)
+```
+
 
