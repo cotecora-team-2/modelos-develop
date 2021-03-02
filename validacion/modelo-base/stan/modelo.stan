@@ -5,7 +5,7 @@ data {
   int n_strata_f;
   int n_covariates_f;
   int<lower=0> y_f[N_f] ; // observed vote counts
-  vector[N_f] in_sample;
+  int in_sample[N_f];
   vector[N_f] n_f; // nominal counts
   int stratum_f[N_f];
   matrix[N_f, n_covariates_f] x_f;
@@ -67,7 +67,7 @@ generated quantities {
 
   y_out = 0;
   for(i in 1:N_f){
-    if(in_sample[i]==1){
+    if(in_sample[i] == 1){
       y_out += y_f[i];
     } else {
       pred_f = dot_product(x_f[i,], beta);

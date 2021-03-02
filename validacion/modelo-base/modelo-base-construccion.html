@@ -445,7 +445,7 @@ summary {
 <p>la parametrización de la binomial negativa que seleccionamos es en la que</p>
 <ul>
 <li>El valor esperado de <span class="math inline">\(y_i\)</span> es <span class="math inline">\(n_i\theta_i\)</span></li>
-<li>La varianza es <span class="math inline">\(n_i\theta_i\left(1 + \phi_{s(i)}^{-1}\right)\)</span></li>
+<li>La varianza es <span class="math inline">\(n_i\theta_i\left(1 + \frac{1}{\phi_{s(i)}}\right)\)</span></li>
 </ul>
 <div id="valor-esperado" class="section level3">
 <h3>Valor esperado</h3>
@@ -459,17 +459,17 @@ summary {
 b_0 &lt;- inv_logit(rnorm(1000, parametros$beta_0_param[1], parametros$beta_0_param[2])) 
 quantile(b_0, probs = c(0.05, 0.5, 0.95))</code></pre>
 <pre><code>##         5%        50%        95% 
-## 0.02545654 0.11753141 0.39355135</code></pre>
+## 0.02418117 0.11932276 0.41184675</code></pre>
 <p>Para los coeficientes <span class="math inline">\(\beta_j\)</span>, <span class="math display">\[\beta_j \sim N(0,1)\]</span></p>
 </div>
 <div id="varianza-y-sobredispersión" class="section level3">
 <h3>Varianza y sobredispersión</h3>
-<p>Para la sobredispersión de la binomial negativa, ponemos <span class="math display">\[\phi_s \sim \textrm{Gamma}(1, 0.5)\]</span> Recordamos que la varianza es <span class="math display">\[n_i\theta_i\left(1 + \phi_{s(i)}^{-1}\right)\]</span> De modo que el factor que multiplica a <span class="math inline">\(n_i\theta_i\)</span> va típicamente de 1 (en cuyo caso la varianza <span class="math inline">\(n_i\theta_i\)</span>) hasta alrededor de 20, que tiene sobredispersión considerablemente mayor en relación a la binomial.</p>
+<p>Para la sobredispersión de la binomial negativa, ponemos <span class="math display">\[\phi_s \sim \textrm{Gamma}(1, 0.5)\]</span> Recordamos que la varianza es <span class="math display">\[n_i\theta_i\left(1 + \phi_{s(i)}^{-1}\right)\]</span> De modo que el factor que multiplica a <span class="math inline">\(n_i\theta_i\)</span> va típicamente de un poco más de 1 (en cuyo caso la varianza <span class="math inline">\(n_i\theta_i\)</span>) hasta alrededor de 20, que tiene sobredispersión considerablemente mayor en relación a la binomial.</p>
 <pre class="r"><code>x &lt;- rgamma(10000, 1, 0.5)
 z &lt;- 1/x 
 quantile(z, probs = c(0.025, 0.5, 0.975))</code></pre>
 <pre><code>##       2.5%        50%      97.5% 
-##  0.1407658  0.7181321 18.7081021</code></pre>
+##  0.1293081  0.7140947 20.8523501</code></pre>
 <p>En stan, el modelo es:</p>
 <pre class="bash"><code>cat stan/modelo.stan</code></pre>
 <pre><code>## data {

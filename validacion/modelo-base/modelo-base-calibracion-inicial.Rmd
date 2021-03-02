@@ -11,7 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r}
-devtools::install_github("cotecora-team-2/quickcountmx")
+#devtools::install_github("cotecora-team-2/quickcountmx")
 library(cmdstanr)
 library(posterior)
 library(tidyverse)
@@ -23,7 +23,7 @@ cb_palette <- c("#000000", "#E69F00", "#56B4E9", "#009E73",
 ```
 
 ```{r}
-datos_ent <- conteo_2018 %>% filter(NOMBRE_ESTADO == "CHIHUAHUA") %>% 
+datos_ent <- conteo_2018 %>% filter(NOMBRE_ESTADO == "NAYARIT") %>% 
   # usar estratificacion anterior por ahora
   mutate(estrato_df = as.numeric(factor(estrato))) %>% 
   select(CLAVE_CASILLA, AMLO, estrato_df, ln = LISTA_NOMINAL_CASILLA, componente = .fittedPC1) %>% 
@@ -37,13 +37,11 @@ x <- datos_ent %>%
 x_f <- scale(x)
 sim_datos_lista$x_f <- x_f
 sim_datos_lista$N_f <- nrow(x_f)
-sim_datos_lista$y_f <- datos_ent$y_f
 sim_datos_lista$n_covariates_f <- ncol(x_f)
 sim_datos_lista$n_strata_f <- datos_ent$estrato_df %>% unique %>% length()
-sim_datos_lista$in_sample <- datos_ent$in_sample
 sim_datos_lista$n_f <- datos_ent$ln
 sim_datos_lista$stratum_f <- datos_ent$estrato_df
-jsonlite::write_json(sim_datos_lista, "./datos/datos_prueba.json")
+jsonlite::write_json(sim_datos_lista, "datos/datos_prueba.json")
 ```
 
 
@@ -100,7 +98,7 @@ ggplot(resumen_estratos, aes(x = factor(estrato_df), y = prop_nominal)) +
   geom_jitter(alpha = 0.5)
 ```
 
-## Calibración algorítmica
+## Ajuste de ensemble simulado
 
 Calculamos el voto obtenido por cada candidato y checamos si recuperamos los
 valores considerando el tamaño de muestra que utilizaremos
@@ -109,31 +107,26 @@ valores considerando el tamaño de muestra que utilizaremos
 ```{r}
 ruta <- file.path("./stan/modelo.stan")
 modelo <- cmdstan_model(ruta)
+source("R/funciones_calibracion.R")
 ```
 
 ```{r}
-num_draw <- 229
-obtener_muestra <- function(num_draw, seed = 1){
-  sims_1 <- sims_casillas %>% filter(.draw == num_draw)
-  muestra_1 <- quickcountmx::select_sample_prop(sims_1, stratum = estrato_df, frac = 0.04, 
-                                                seed = seed)
-  list(y = muestra_1$y_f, N = length(muestra_1$y_f), stratum = muestra_1$estrato_df,
-       n = muestra_1$ln, x = x_f[muestra_1$no_casilla, , drop = FALSE])
-}
-datos_muestra <- obtener_muestra(num_draw, seed = 23)
+num_draw <- 121
+datos_muestra <- obtener_muestra(num_draw, frac = 0.15, seed = 1132)
+datos_1 <- c(sim_ensemble_datos, datos_muestra)
 ```
 
 
 
 
 ```{r, message=FALSE, warning=FALSE}
-datos_1 <- c(sim_ensemble_datos, datos_muestra)
 ajuste <- modelo$sample(data = datos_1, 
                           seed = 2211,
-                          iter_sampling = 500, iter_warmup = 1200,
+                          iter_sampling = 250, iter_warmup = 500,
                           refresh = 250, 
                           chains = 4, 
-                          adapt_delta = 0.95,
+                          adapt_delta = 0.99,
+                          max_treedepth = 12,
                           parallel_chains = 4, 
                           show_messages = FALSE)
 ajuste$summary(variables = c("beta_0", "beta", "beta_bn"))
@@ -152,9 +145,83 @@ ajuste$cmdstan_diagnose()
 y_sims <- ajuste$draws() %>% as_draws_df() %>% 
   as_tibble()
 mean(y_sims$y_out)/sum(datos_ent$ln)
-ggplot(y_sims, aes(x = y_out/valores_sim$y_out[1] - 1)) +
+ggplot(y_sims, aes(x = y_out)) +
   geom_histogram() +
-  geom_vline(xintercept = 0, colour = "red")
+  geom_vline(xintercept = valores_sim$y_out, colour = "red")
+```
+
+## Calibración algorítmica
+
+```{r, warning = FALSE, message = FALSE}
+reajustar_ensemble <- FALSE
+set.seed(82823)
+if(reajustar_ensemble){
+ajustes_ensemble <- 
+  map(1:250, ~ ajustar_diagnosticos(.x, frac = 0.15,
+        modelo = modelo, 
+        datos = sim_ensemble_datos,
+        params = sims_ensemble_tbl[.x, ] %>% as_tibble %>% select(y_out, beta_0),
+        adapt_delta = 0.99, max_treedepth = 12,
+        iter_warmup = 600, iter_sampling = 300)) %>% 
+  bind_rows()
+  write_rds(ajustes_ensemble, "salidas/ensemble_ajustes_in.rds")
+} else {
+  ajustes_ensemble <- read_rds("salidas/ensemble_ajustes_in.rds")
+}
+```
+
+En algunas corridas obtuvimos problemas numéricos?
+
+```{r}
+map(ajustes_ensemble$diagnosticos, "stdout") %>% str_detect("no problems detected") %>% 
+  table
+```
+
+
+
+Ahora checamos que recuperamos los parámetros apropiadamente:
+
+```{r}
+sbc_rank_sim <- ajustes_ensemble %>% select(sbc_rank) %>% unnest(cols = sbc_rank)
+g_1 <- ggplot(sbc_rank_sim, aes(sample = y_out)) +
+  geom_qq(distribution = stats::qunif) +
+  geom_abline() +
+  labs(subtitle = "y_out")
+g_2 <- ggplot(sbc_rank_sim, aes(sample = beta_0)) +
+  geom_qq(distribution = stats::qunif) +
+  geom_abline() +
+  labs(subtitle = "beta_0")
+g_1 + g_2
+```
+
+## Calibración inferencial
+
+
+
+```{r}
+prior_sd <- sd(sims_ensemble_tbl$y_out)
+variable <- "y_out"
+calib_inf_tbl <- ajustes_ensemble %>%
+  unnest(cols = (params)) %>% 
+  mutate(post_media = map_dbl(resumen, ~filter(.x, variable=="y_out") %>% pull(mean)),
+         post_sd = map_dbl(resumen, ~ filter(.x, variable == "y_out") %>% pull(sd))) %>% 
+  mutate(z_score = (post_media - y_out) / post_sd) %>% 
+  mutate(contraccion = 1 - (post_sd/prior_sd)^2)
+```
+
+```{r}
+ggplot(calib_inf_tbl, aes(x = contraccion, y = z_score)) + geom_point(alpha = 0.5) +
+  xlim(c(0, 1))
+```
+
+```{r}
+calib_cv <- ajustes_ensemble %>%
+  unnest(cols = (params)) %>% 
+  mutate(post_media = map_dbl(resumen, ~filter(.x, variable=="y_out") %>% pull(mean)),
+         post_sd = map_dbl(resumen, ~ filter(.x, variable == "y_out") %>% pull(sd))) %>% 
+  mutate(coef_variacion_post = post_sd / post_media )
+quantile(100 * calib_cv$coef_variacion_post, probs = c(0.01, 0.05, 0.5, 0.90, 0.99)) %>% 
+  round(., 1)
 ```
 
 
