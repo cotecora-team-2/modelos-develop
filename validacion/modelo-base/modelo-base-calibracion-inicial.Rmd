@@ -154,15 +154,15 @@ ggplot(y_sims, aes(x = y_out)) +
 
 ```{r, warning = FALSE, message = FALSE}
 reajustar_ensemble <- FALSE
-set.seed(8823)
+set.seed(82823)
 if(reajustar_ensemble){
 ajustes_ensemble <- 
-  map(1:100, ~ ajustar_diagnosticos(.x, frac = 0.15,
+  map(1:250, ~ ajustar_diagnosticos(.x, frac = 0.15,
         modelo = modelo, 
         datos = sim_ensemble_datos,
         params = sims_ensemble_tbl[.x, ] %>% as_tibble %>% select(y_out, beta_0),
         adapt_delta = 0.99, max_treedepth = 12,
-        iter_warmup = 500, iter_sampling = 250)) %>% 
+        iter_warmup = 600, iter_sampling = 300)) %>% 
   bind_rows()
   write_rds(ajustes_ensemble, "salidas/ensemble_ajustes_in.rds")
 } else {
