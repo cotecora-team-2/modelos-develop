@@ -8,7 +8,7 @@ data {
   int N_f; // total number of stations
   int n_strata_f;
   int n_covariates_f;
-  int<lower=0> y_f[N_f] ; // observed vote counts
+  //int<lower=0> y_f[N_f] ; // observed vote counts
   vector[N_f] n_f; // nominal counts
   int stratum_f[N_f];
   matrix[N_f, n_covariates_f] x_f;

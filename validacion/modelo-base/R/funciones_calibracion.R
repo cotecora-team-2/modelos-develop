@@ -5,10 +5,10 @@ obtener_muestra <- function(num_draw, frac= 0.04, seed = NA){
   in_sample_na <- sims_1 %>% select(no_casilla) %>%
     left_join(muestra_1 %>% select(no_casilla, estrato_df),
               by = "no_casilla") %>% pull(estrato_df)
-  in_sample <- ifelse(is.na(in_sample_na), 0, 1)
+  in_sample <- ifelse(is.na(in_sample_na), 0, 1) %>% as.integer()
   list(y = muestra_1$y_f, N = length(muestra_1$y_f), stratum = muestra_1$estrato_df,
        n = muestra_1$ln, x = x_f[muestra_1$no_casilla, , drop = FALSE],
-       in_sample = in_sample)
+       in_sample = in_sample, y_f = sims_1$y_f)
 }
 
 obtener_muestra_marco <- function(marco_tbl, frac= 0.04, seed = NA){

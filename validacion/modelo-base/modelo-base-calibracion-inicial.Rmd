@@ -37,7 +37,6 @@ x <- datos_ent %>%
 x_f <- scale(x)
 sim_datos_lista$x_f <- x_f
 sim_datos_lista$N_f <- nrow(x_f)
-sim_datos_lista$y_f <- datos_ent$y_f
 sim_datos_lista$n_covariates_f <- ncol(x_f)
 sim_datos_lista$n_strata_f <- datos_ent$estrato_df %>% unique %>% length()
 sim_datos_lista$n_f <- datos_ent$ln
@@ -112,8 +111,8 @@ source("R/funciones_calibracion.R")
 ```
 
 ```{r}
-num_draw <- 3
-datos_muestra <- obtener_muestra(num_draw, frac = 0.15, seed = 13)
+num_draw <- 121
+datos_muestra <- obtener_muestra(num_draw, frac = 0.15, seed = 1132)
 datos_1 <- c(sim_ensemble_datos, datos_muestra)
 ```
 
@@ -146,15 +145,16 @@ ajuste$cmdstan_diagnose()
 y_sims <- ajuste$draws() %>% as_draws_df() %>% 
   as_tibble()
 mean(y_sims$y_out)/sum(datos_ent$ln)
-ggplot(y_sims, aes(x = y_out/valores_sim$y_out[1] - 1)) +
+ggplot(y_sims, aes(x = y_out)) +
   geom_histogram() +
-  geom_vline(xintercept = 0, colour = "red")
+  geom_vline(xintercept = valores_sim$y_out, colour = "red")
 ```
 
 ## Calibración algorítmica
 
 ```{r, warning = FALSE, message = FALSE}
-reajustar_ensemble <- FALSE
+reajustar_ensemble <- TRUE
+set.seed(8823)
 if(reajustar_ensemble){
 ajustes_ensemble <- 
   map(1:100, ~ ajustar_diagnosticos(.x, frac = 0.15,
@@ -164,9 +164,9 @@ ajustes_ensemble <-
         adapt_delta = 0.99, max_treedepth = 12,
         iter_warmup = 500, iter_sampling = 250)) %>% 
   bind_rows()
-  write_rds(ajustes_ensemble, "salidas/ensemble_ajustes.rds")
+  write_rds(ajustes_ensemble, "salidas/ensemble_ajustes_in.rds")
 } else {
-  ajustes_ensemble <- read_rds("salidas/ensemble_ajustes.rds")
+  ajustes_ensemble <- read_rds("salidas/ensemble_ajustes_in.rds")
 }
 ```
 
