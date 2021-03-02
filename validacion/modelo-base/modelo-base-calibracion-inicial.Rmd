@@ -153,7 +153,7 @@ ggplot(y_sims, aes(x = y_out)) +
 ## Calibración algorítmica
 
 ```{r, warning = FALSE, message = FALSE}
-reajustar_ensemble <- TRUE
+reajustar_ensemble <- FALSE
 set.seed(8823)
 if(reajustar_ensemble){
 ajustes_ensemble <- 
