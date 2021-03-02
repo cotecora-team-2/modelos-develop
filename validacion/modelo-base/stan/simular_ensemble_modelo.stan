@@ -9,7 +9,6 @@ data {
   int n_strata_f;
   int n_covariates_f;
   int<lower=0> y_f[N_f] ; // observed vote counts
-  vector[N_f] in_sample;
   vector[N_f] n_f; // nominal counts
   int stratum_f[N_f];
   matrix[N_f, n_covariates_f] x_f;
@@ -63,15 +62,15 @@ generated quantities {
   for(i in 1:N_f){
     vector[N_f] alpha_bn_f;
     real theta_f;
-    if(in_sample[i]==1){
-      y_out += y_f[i];
-    } else {
+    //if(in_sample[i]==1){
+    //  y_out += y_f[i];
+    //} else {
       pred_f = dot_product(x_f[i,], beta);
       theta_f = inv_logit(beta_st[stratum_f[i]] + pred_f);
       alpha_bn_f[i] =  n_f[i] * theta_f;
       y_f_sim[i] = neg_binomial_2_rng(alpha_bn_f[i] , beta_bn_f[stratum_f[i]]*alpha_bn_f[i]);
       y_out += y_f_sim[i];
-    }
+    //}
   }
 }
 

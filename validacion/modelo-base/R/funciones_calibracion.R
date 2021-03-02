@@ -2,8 +2,31 @@ obtener_muestra <- function(num_draw, frac= 0.04, seed = NA){
   sims_1 <- sims_casillas %>% filter(.draw == num_draw)
   muestra_1 <- quickcountmx::select_sample_prop(sims_1, stratum = estrato_df, frac = frac,
                                                 seed = seed)
+  in_sample_na <- sims_1 %>% select(no_casilla) %>%
+    left_join(muestra_1 %>% select(no_casilla, estrato_df),
+              by = "no_casilla") %>% pull(estrato_df)
+  in_sample <- ifelse(is.na(in_sample_na), 0, 1)
   list(y = muestra_1$y_f, N = length(muestra_1$y_f), stratum = muestra_1$estrato_df,
-       n = muestra_1$ln, x = x_f[muestra_1$no_casilla, , drop = FALSE])
+       n = muestra_1$ln, x = x_f[muestra_1$no_casilla, , drop = FALSE],
+       in_sample = in_sample)
+}
+
+obtener_muestra_marco <- function(marco_tbl, frac= 0.04, seed = NA){
+  muestra_1 <- quickcountmx::select_sample_prop(marco_tbl,
+                                                stratum = estrato_df,
+                                                frac = frac,
+                                                seed = seed)
+  in_sample_na <- marco_tbl %>% select(no_casilla) %>%
+    left_join(muestra_1 %>% select(no_casilla, estrato_df),
+              by = "no_casilla") %>%
+    pull(estrato_df)
+  in_sample <- ifelse(is.na(in_sample_na), 0, 1)
+  votos <- muestra_1 %>% select(AMLO, RAC, JAMK, CAND_IND_02)
+  list(y = muestra_1$y_f, N = length(muestra_1$y_f),
+       in_sample = in_sample,
+       stratum = muestra_1$estrato_df,
+       n = muestra_1$ln, x = x_f[muestra_1$no_casilla, , drop = FALSE],
+       votos = votos)
 }
 
 ajustar_diagnosticos <- function(rep, frac = 0.04, modelo, datos, params,
