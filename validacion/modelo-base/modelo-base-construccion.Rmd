@@ -84,7 +84,7 @@ quantile(b_0, probs = c(0.05, 0.5, 0.95))
 
 
 Para los coeficientes  $\beta_j$, 
-$$\beta_j \sim N(0,1)$$
+$$\beta_j \sim N(0,0.25)$$
 
 ### Varianza y sobredispersión
 

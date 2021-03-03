@@ -25,13 +25,15 @@ cb_palette <- c("#000000", "#E69F00", "#56B4E9", "#009E73",
 datos_ent <- conteo_2018 %>% filter(NOMBRE_ESTADO == "NAYARIT") %>% 
   # usar estratificacion anterior por ahora
   mutate(estrato_df = as.numeric(factor(estrato))) %>% 
-  select(CLAVE_CASILLA, AMLO, RAC, JAMK, CAND_IND_02, estrato_df, ln = LISTA_NOMINAL_CASILLA, componente = .fittedPC1) %>% 
+  select(CLAVE_CASILLA, AMLO, RAC, JAMK, CAND_IND_02, estrato_df, 
+         ln = LISTA_NOMINAL_CASILLA, componente = .fittedPC1, TIPO_CASILLA.x) %>% 
   mutate(in_sample = 0, y_f = CAND_IND_02) %>% 
-  mutate(ln = ifelse(ln == 0, 600, ln)) %>% 
+  mutate(casilla_esp = ifelse(TIPO_CASILLA.x == "S", 1, 0)) %>% 
+  mutate(ln = ifelse(ln == 0, 1200, ln)) %>% 
   mutate(no_casilla = row_number())
 sim_datos_lista <- list()
 x <- datos_ent %>% 
-  select(ln, componente) %>% 
+  select(ln, componente, casilla_esp) %>% 
   as.matrix()
 x_f <- scale(x)
 sim_datos_lista$x_f <- x_f
@@ -73,10 +75,10 @@ modelo_sim_indiv <- cmdstan_model(file.path("./stan/modelo_sim_individual.stan")
 ```{r, message=FALSE, warning=FALSE}
 ajuste <- modelo_sim_indiv$sample(data = datos_1, 
                           seed = 2211,
-                          iter_sampling = 500, iter_warmup = 800,
+                          iter_sampling = 1000, iter_warmup = 1000,
                           refresh = 250, 
                           chains = 4, 
-                          adapt_delta = 0.99,
+                          adapt_delta = 0.995,
                           max_treedepth = 12,
                           parallel_chains = 4, 
                           show_messages = TRUE)
@@ -106,10 +108,10 @@ total <- sim_datos$y_f %>% sum()
 ```{r, message=FALSE, warning=FALSE}
 ajuste <- modelo_sim_indiv$sample(data = datos_1, 
                           seed = 2211,
-                          iter_sampling = 500, iter_warmup = 800,
+                          iter_sampling = 1000, iter_warmup = 1000,
                           refresh = 250, 
                           chains = 4, 
-                          adapt_delta = 0.99,
+                          adapt_delta = 0.995,
                           max_treedepth = 12,
                           parallel_chains = 4, 
                           show_messages = TRUE)
@@ -124,10 +126,10 @@ bayesplot::mcmc_hist(ajuste$draws("y_out")) +
 ## Predictiva posterior a nivel casilla
 
 ```{r}
-set.seed(213)
+set.seed(21321)
 en_muestra <- muestra_1$in_sample
 fuera_muestra <- datos_ent[en_muestra == 0, ]
-muestra_oos <- sample_n(fuera_muestra, 20) %>% 
+muestra_oos <- sample_n(fuera_muestra, 30) %>% 
   select(no_casilla, estrato_df, y_f = any_of(candidato))
 sims_casilla <- draws_df %>% as_tibble() %>% 
   select(.draw, contains("y_f_sim")) %>% 
@@ -148,10 +150,10 @@ ggplot(sims_oos, aes(x = value)) +
 ## Verificación posterior para total de votos
 
 ```{r}
-set.seed(83341)
+set.seed(8341)
 candidato <- "RAC"
 if(FALSE){
-  ajuste_muestras_2 <- map(1:150, function(rep){
+  ajuste_muestras_2 <- map(1:100, function(rep){
   muestra_1 <- obtener_muestra_marco(datos_ent, frac = 0.15)
   sim_datos$y_f <- datos_ent[[candidato]]
   muestra_1$y <- muestra_1[["votos"]][[candidato]] 
@@ -159,7 +161,7 @@ if(FALSE){
   total <- datos_1$y_f %>% sum()
   ajuste <- modelo$sample(data = datos_1, 
                           seed = 2131,
-                          iter_sampling = 500, iter_warmup = 800,
+                          iter_sampling = 1000, iter_warmup = 1000,
                           refresh = 0, 
                           chains = 4, 
                           adapt_delta = 0.995,
@@ -189,7 +191,7 @@ ggplot(ajuste_resumen_tbl, aes(x = rep, ymin = inf, ymax = sup)) +
 
 ```{r}
 ajuste_resumen_tbl %>% 
-  summarise(cobertura = mean(total >= inf & total <= sup), n = n()) %>% 
+  summarise(cobertura = mean(total >= inf & total <= sup), n = n(), error_porc = mean((sup+inf)/(2*total))) %>% 
   mutate(error = sqrt(cobertura*(1-cobertura)/n))
 ```
 

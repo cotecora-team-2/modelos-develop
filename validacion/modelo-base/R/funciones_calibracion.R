@@ -1,4 +1,4 @@
-obtener_muestra <- function(num_draw, frac= 0.04, seed = NA){
+obtener_muestra <- function(sims_casillas, num_draw, frac= 0.04, seed = NA){
   sims_1 <- sims_casillas %>% filter(.draw == num_draw)
   muestra_1 <- quickcountmx::select_sample_prop(sims_1, stratum = estrato_df, frac = frac,
                                                 seed = seed)
@@ -29,11 +29,11 @@ obtener_muestra_marco <- function(marco_tbl, frac= 0.04, seed = NA){
        votos = votos)
 }
 
-ajustar_diagnosticos <- function(rep, frac = 0.04, modelo, datos, params,
+ajustar_diagnosticos <- function(sims_casillas, rep, frac = 0.04, modelo, datos, params,
                                  adapt_delta = 0.9, max_treedepth = 10,
                                  iter_sampling=2000, iter_warmup = 2000){
 
-  datos_muestra <- obtener_muestra(rep, frac = frac, seed = NA)
+  datos_muestra <- obtener_muestra(sims_casillas, rep, frac = frac, seed = NA)
   datos_1 <- c(datos, datos_muestra)
   print(rep)
   ajuste <- modelo$sample(data = datos_1,

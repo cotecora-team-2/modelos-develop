@@ -450,17 +450,17 @@ summary {
 <div id="valor-esperado" class="section level3">
 <h3>Valor esperado</h3>
 <p>Ponemos <span class="math display">\[\alpha_i = n_i\theta_i,\]</span> y finalmente <span class="math display">\[\theta_i = \textrm{invlogit}( \beta_{s(i)}^0 + \beta_{}^t x_{i}),\]</span> donde <span class="math inline">\(x_{i}\)</span> es el vector de covariables centradas y estandarizadas para la casilla <span class="math inline">\(i\)</span>. Estas covariables se conocen de antemano.</p>
-<p>Consideramos los coeficientes <span class="math inline">\(\beta\)</span> fijos sobre todo el estado, sin embargo, la ordenada al origen depende del estado:</p>
+<p>Consideramos los coeficientes <span class="math inline">\(\beta\)</span> fijos sobre todo el estado, sin embargo, la ordenada al origen depende del estrato:</p>
 <p><span class="math display">\[\beta_{s}^0 \sim N(\beta_{0}, \sigma)\]</span> y</p>
-<p><span class="math display">\[\beta_0\sim N(-2, 1), \sigma\sim N^{+}(0,1)\]</span></p>
+<p><span class="math display">\[\beta_0\sim N(-2, 1), \sigma\sim N^{+}(0,0.5)\]</span></p>
 <pre class="r"><code>inv_logit &lt;- function(z){
   exp(z) / (1 + exp(z))
 }
 b_0 &lt;- inv_logit(rnorm(1000, parametros$beta_0_param[1], parametros$beta_0_param[2])) 
 quantile(b_0, probs = c(0.05, 0.5, 0.95))</code></pre>
 <pre><code>##         5%        50%        95% 
-## 0.02418117 0.11932276 0.41184675</code></pre>
-<p>Para los coeficientes <span class="math inline">\(\beta_j\)</span>, <span class="math display">\[\beta_j \sim N(0,1)\]</span></p>
+## 0.02424943 0.12193688 0.41810263</code></pre>
+<p>Para los coeficientes <span class="math inline">\(\beta_j\)</span>, <span class="math display">\[\beta_j \sim N(0,0.25)\]</span></p>
 </div>
 <div id="varianza-y-sobredispersión" class="section level3">
 <h3>Varianza y sobredispersión</h3>
@@ -469,7 +469,7 @@ quantile(b_0, probs = c(0.05, 0.5, 0.95))</code></pre>
 z &lt;- 1/x 
 quantile(z, probs = c(0.025, 0.5, 0.975))</code></pre>
 <pre><code>##       2.5%        50%      97.5% 
-##  0.1293081  0.7140947 20.8523501</code></pre>
+##  0.1366997  0.7317949 19.7103839</code></pre>
 <p>En stan, el modelo es:</p>
 <pre class="bash"><code>cat stan/modelo.stan</code></pre>
 <pre><code>## data {
@@ -479,7 +479,7 @@ quantile(z, probs = c(0.025, 0.5, 0.975))</code></pre>
 ##   int n_strata_f;
 ##   int n_covariates_f;
 ##   int&lt;lower=0&gt; y_f[N_f] ; // observed vote counts
-##   vector[N_f] in_sample;
+##   int in_sample[N_f];
 ##   vector[N_f] n_f; // nominal counts
 ##   int stratum_f[N_f];
 ##   matrix[N_f, n_covariates_f] x_f;
@@ -495,6 +495,7 @@ quantile(z, probs = c(0.025, 0.5, 0.975))</code></pre>
 ##   vector[2] beta_0_param;
 ##   real sigma_param;
 ##   vector[2] beta_bn_param;
+##   real sigma_coefs;
 ## 
 ## }
 ## 
@@ -524,7 +525,7 @@ quantile(z, probs = c(0.025, 0.5, 0.975))</code></pre>
 ## model {
 ## 
 ##   beta_0 ~ normal(beta_0_param[1], beta_0_param[2]);
-##   beta ~ normal(0 , 1);
+##   beta ~ normal(0 , sigma_coefs);
 ##   beta_st_raw ~ normal(0, 1);
 ##   sigma ~ normal(0, sigma_param);
 ##   beta_bn ~ gamma(beta_bn_param[1], beta_bn_param[2]);
@@ -541,7 +542,7 @@ quantile(z, probs = c(0.025, 0.5, 0.975))</code></pre>
 ## 
 ##   y_out = 0;
 ##   for(i in 1:N_f){
-##     if(in_sample[i]==1){
+##     if(in_sample[i] == 1){
 ##       y_out += y_f[i];
 ##     } else {
 ##       pred_f = dot_product(x_f[i,], beta);
@@ -563,8 +564,7 @@ quantile(z, probs = c(0.025, 0.5, 0.975))</code></pre>
 ##   int N_f; // total number of stations
 ##   int n_strata_f;
 ##   int n_covariates_f;
-##   int&lt;lower=0&gt; y_f[N_f] ; // observed vote counts
-##   vector[N_f] in_sample;
+##   //int&lt;lower=0&gt; y_f[N_f] ; // observed vote counts
 ##   vector[N_f] n_f; // nominal counts
 ##   int stratum_f[N_f];
 ##   matrix[N_f, n_covariates_f] x_f;
@@ -573,7 +573,7 @@ quantile(z, probs = c(0.025, 0.5, 0.975))</code></pre>
 ##   vector[2] beta_0_param;
 ##   real sigma_param;
 ##   vector[2] beta_bn_param;
-## 
+##   real sigma_coefs;
 ## }
 ## 
 ## parameters {
@@ -606,7 +606,7 @@ quantile(z, probs = c(0.025, 0.5, 0.975))</code></pre>
 ##   beta_0 = normal_rng(beta_0_param[1], beta_0_param[2]);
 ## 
 ##   for(i in 1:n_covariates_f){
-##     beta[i] = normal_rng(0, 1);
+##     beta[i] = normal_rng(0, sigma_coefs);
 ##   }
 ##   for(j in 1:n_strata_f){
 ##     beta_st_raw[j] = normal_rng(0, 1);
@@ -618,15 +618,15 @@ quantile(z, probs = c(0.025, 0.5, 0.975))</code></pre>
 ##   for(i in 1:N_f){
 ##     vector[N_f] alpha_bn_f;
 ##     real theta_f;
-##     if(in_sample[i]==1){
-##       y_out += y_f[i];
-##     } else {
+##     //if(in_sample[i]==1){
+##     //  y_out += y_f[i];
+##     //} else {
 ##       pred_f = dot_product(x_f[i,], beta);
 ##       theta_f = inv_logit(beta_st[stratum_f[i]] + pred_f);
 ##       alpha_bn_f[i] =  n_f[i] * theta_f;
 ##       y_f_sim[i] = neg_binomial_2_rng(alpha_bn_f[i] , beta_bn_f[stratum_f[i]]*alpha_bn_f[i]);
 ##       y_out += y_f_sim[i];
-##     }
+##     //}
 ##   }
 ## }</code></pre>
 </div>
