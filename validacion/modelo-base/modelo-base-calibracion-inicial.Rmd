@@ -26,13 +26,15 @@ cb_palette <- c("#000000", "#E69F00", "#56B4E9", "#009E73",
 datos_ent <- conteo_2018 %>% filter(NOMBRE_ESTADO == "NAYARIT") %>% 
   # usar estratificacion anterior por ahora
   mutate(estrato_df = as.numeric(factor(estrato))) %>% 
-  select(CLAVE_CASILLA, AMLO, estrato_df, ln = LISTA_NOMINAL_CASILLA, componente = .fittedPC1) %>% 
+  select(CLAVE_CASILLA, AMLO, estrato_df, 
+         ln = LISTA_NOMINAL_CASILLA, componente = .fittedPC1, TIPO_CASILLA.x) %>% 
   mutate(in_sample = 0, y_f = 0) %>% 
-  mutate(ln = ifelse(ln == 0, 600, ln)) %>% 
+  mutate(ln = ifelse(ln == 0, 1200, ln)) %>% 
+  mutate(casilla_esp = ifelse(TIPO_CASILLA.x == "S", 1, 0)) %>% 
   mutate(no_casilla = row_number())
 sim_datos_lista <- list()
 x <- datos_ent %>% 
-  select(ln, componente) %>% 
+  select(ln, componente, casilla_esp) %>% 
   as.matrix()
 x_f <- scale(x)
 sim_datos_lista$x_f <- x_f
@@ -112,7 +114,7 @@ source("R/funciones_calibracion.R")
 
 ```{r}
 num_draw <- 121
-datos_muestra <- obtener_muestra(num_draw, frac = 0.15, seed = 1132)
+datos_muestra <- obtener_muestra(sims_casillas, num_draw, frac = 0.15, seed = 1132)
 datos_1 <- c(sim_ensemble_datos, datos_muestra)
 ```
 
@@ -122,10 +124,10 @@ datos_1 <- c(sim_ensemble_datos, datos_muestra)
 ```{r, message=FALSE, warning=FALSE}
 ajuste <- modelo$sample(data = datos_1, 
                           seed = 2211,
-                          iter_sampling = 250, iter_warmup = 500,
+                          iter_sampling = 1000, iter_warmup = 1000,
                           refresh = 250, 
                           chains = 4, 
-                          adapt_delta = 0.99,
+                          adapt_delta = 0.95,
                           max_treedepth = 12,
                           parallel_chains = 4, 
                           show_messages = FALSE)
@@ -157,12 +159,12 @@ reajustar_ensemble <- FALSE
 set.seed(82823)
 if(reajustar_ensemble){
 ajustes_ensemble <- 
-  map(1:250, ~ ajustar_diagnosticos(.x, frac = 0.15,
+  map(1:200, ~ ajustar_diagnosticos(sims_casillas, .x, frac = 0.15,
         modelo = modelo, 
         datos = sim_ensemble_datos,
-        params = sims_ensemble_tbl[.x, ] %>% as_tibble %>% select(y_out, beta_0),
-        adapt_delta = 0.99, max_treedepth = 12,
-        iter_warmup = 600, iter_sampling = 300)) %>% 
+        params = sims_ensemble_tbl[.x, ] %>% as_tibble %>% select(y_out, beta_0, sigma),
+        adapt_delta = 0.995, max_treedepth = 12,
+        iter_warmup = 500, iter_sampling = 500)) %>% 
   bind_rows()
   write_rds(ajustes_ensemble, "salidas/ensemble_ajustes_in.rds")
 } else {
@@ -175,6 +177,11 @@ En algunas corridas obtuvimos problemas numéricos?
 ```{r}
 map(ajustes_ensemble$diagnosticos, "stdout") %>% str_detect("no problems detected") %>% 
   table
+
+divergencias <- map(ajustes_ensemble$diagnosticos, "stdout") %>% str_detect("ended with a divergence") 
+ajustes_ensemble$div <- divergencias
+analisis_div <- ajustes_ensemble %>% unnest(params)
+ggplot(analisis_div, aes(x = sigma, y = y_out, colour = factor(div))) + geom_point()
 ```
 
 

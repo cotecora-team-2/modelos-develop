@@ -17,7 +17,7 @@ data {
   vector[2] beta_0_param;
   real sigma_param;
   vector[2] beta_bn_param;
-
+  real sigma_coefs;
 }
 
 parameters {
@@ -50,7 +50,7 @@ generated quantities {
   beta_0 = normal_rng(beta_0_param[1], beta_0_param[2]);
 
   for(i in 1:n_covariates_f){
-    beta[i] = normal_rng(0, 1);
+    beta[i] = normal_rng(0, sigma_coefs);
   }
   for(j in 1:n_strata_f){
     beta_st_raw[j] = normal_rng(0, 1);
