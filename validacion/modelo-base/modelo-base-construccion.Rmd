@@ -44,12 +44,12 @@ Los resúmenes de interés principal son:
 ## Definición del modelo
 
 Modelamos el número de votos obtenidos para el candidato como
-$$y_{i} \sim \textrm{NegBin} (n_{i}\theta_i, n_i\theta_i\phi_{s(i)})$$
+$$y_{i} \sim \textrm{NegBin} \left( n_{i}\theta_i, \frac{n_i\theta_i}{\phi_{s(i)}} \right)$$
 
 la parametrización de la binomial negativa que seleccionamos es en la que
 
 - El valor esperado de $y_i$ es $n_i\theta_i$
-- La varianza es $n_i\theta_i\left(1 + \frac{1}{\phi_{s(i)}}\right)$
+- La varianza es $n_i\theta_i\left(1 + {\phi_{s(i)}}\right)$
 
 ### Valor esperado
 
@@ -89,16 +89,15 @@ $$\beta_j \sim N(0,0.25)$$
 ### Varianza y sobredispersión
 
 Para la sobredispersión de la binomial negativa, ponemos
-$$\phi_s \sim \textrm{Gamma}(`r parametros$beta_bn_param[1]`, `r parametros$beta_bn_param[2]`)$$
+$$\phi_s \sim \textrm{Gamma}(`r parametros$phi_inv_param[1]`, `r parametros$phi_inv_param[2]`)$$
 Recordamos que la varianza es
-$$n_i\theta_i\left(1 + \phi_{s(i)}^{-1}\right)$$
+$$n_i\theta_i\left(1 + \phi_{s(i)}\right)$$
 De modo que el factor que multiplica a $n_i\theta_i$ va típicamente de un poco más de
-1 (en cuyo caso la varianza $n_i\theta_i$) hasta alrededor de 20, que tiene sobredispersión considerablemente mayor en relación a la binomial.
+1 (en cuyo caso la varianza $n_i\theta_i$) hasta alrededor de 40, que tiene sobredispersión considerablemente mayor en relación a la Poisson.
 
 ```{r}
-x <- rgamma(10000, 1, 0.5)
-z <- 1/x 
-quantile(z, probs = c(0.025, 0.5, 0.975))
+x <- rgamma(100000, 1, 0.1)
+quantile(1+x, probs = c(0.01, 0.025, 0.5, 0.975, 0.99)) 
 ```
 En stan, el modelo es:
 

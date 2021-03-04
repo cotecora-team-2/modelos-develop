@@ -20,14 +20,15 @@ data {
   // conf
   vector[2] beta_0_param;
   real sigma_param;
-  vector[2] beta_bn_param;
+  vector[2] phi_inv_param;
+  real sigma_coefs;
 
 }
 
 parameters {
   real beta_0;
   vector[n_covariates_f] beta;
-  vector<lower=0>[n_strata_f] beta_bn;
+  vector<lower=0>[n_strata_f] phi_inv;
   real<lower=0> sigma;
   vector[n_strata_f] beta_st_raw;
 }
@@ -50,12 +51,12 @@ transformed parameters {
 model {
 
   beta_0 ~ normal(beta_0_param[1], beta_0_param[2]);
-  beta ~ normal(0 , 1);
+  beta ~ normal(0 , sigma_coefs);
   beta_st_raw ~ normal(0, 1);
   sigma ~ normal(0, sigma_param);
-  beta_bn ~ gamma(beta_bn_param[1], beta_bn_param[2]);
+  phi_inv ~ gamma(phi_inv_param[1], phi_inv_param[2]);
 
-  y ~ neg_binomial_2( alpha_bn , beta_bn[stratum] .* alpha_bn);
+  y ~ neg_binomial_2( alpha_bn , alpha_bn ./ phi_inv[stratum]);
 
 }
 
@@ -73,7 +74,7 @@ generated quantities {
       pred_f = dot_product(x_f[i,], beta);
       theta_f = inv_logit(beta_st[stratum_f[i]] + pred_f);
       alpha_bn_f =  n_f[i] * theta_f;
-      y_out += neg_binomial_2_rng(alpha_bn_f , beta_bn[stratum_f[i]]*alpha_bn_f);
+      y_out += neg_binomial_2_rng(alpha_bn_f , alpha_bn_f/phi_inv[stratum_f[i]]);
     }
   }
 }

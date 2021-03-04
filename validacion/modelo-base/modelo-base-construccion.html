@@ -441,11 +441,11 @@ summary {
 </div>
 <div id="definición-del-modelo" class="section level2">
 <h2>Definición del modelo</h2>
-<p>Modelamos el número de votos obtenidos para el candidato como <span class="math display">\[y_{i} \sim \textrm{NegBin} (n_{i}\theta_i, n_i\theta_i\phi_{s(i)})\]</span></p>
+<p>Modelamos el número de votos obtenidos para el candidato como <span class="math display">\[y_{i} \sim \textrm{NegBin} \left( n_{i}\theta_i, \frac{n_i\theta_i}{\phi_{s(i)}} \right)\]</span></p>
 <p>la parametrización de la binomial negativa que seleccionamos es en la que</p>
 <ul>
 <li>El valor esperado de <span class="math inline">\(y_i\)</span> es <span class="math inline">\(n_i\theta_i\)</span></li>
-<li>La varianza es <span class="math inline">\(n_i\theta_i\left(1 + \frac{1}{\phi_{s(i)}}\right)\)</span></li>
+<li>La varianza es <span class="math inline">\(n_i\theta_i\left(1 + {\phi_{s(i)}}\right)\)</span></li>
 </ul>
 <div id="valor-esperado" class="section level3">
 <h3>Valor esperado</h3>
@@ -459,17 +459,16 @@ summary {
 b_0 &lt;- inv_logit(rnorm(1000, parametros$beta_0_param[1], parametros$beta_0_param[2])) 
 quantile(b_0, probs = c(0.05, 0.5, 0.95))</code></pre>
 <pre><code>##         5%        50%        95% 
-## 0.02424943 0.12193688 0.41810263</code></pre>
+## 0.02479444 0.11654846 0.44014352</code></pre>
 <p>Para los coeficientes <span class="math inline">\(\beta_j\)</span>, <span class="math display">\[\beta_j \sim N(0,0.25)\]</span></p>
 </div>
 <div id="varianza-y-sobredispersión" class="section level3">
 <h3>Varianza y sobredispersión</h3>
-<p>Para la sobredispersión de la binomial negativa, ponemos <span class="math display">\[\phi_s \sim \textrm{Gamma}(1, 0.5)\]</span> Recordamos que la varianza es <span class="math display">\[n_i\theta_i\left(1 + \phi_{s(i)}^{-1}\right)\]</span> De modo que el factor que multiplica a <span class="math inline">\(n_i\theta_i\)</span> va típicamente de un poco más de 1 (en cuyo caso la varianza <span class="math inline">\(n_i\theta_i\)</span>) hasta alrededor de 20, que tiene sobredispersión considerablemente mayor en relación a la binomial.</p>
-<pre class="r"><code>x &lt;- rgamma(10000, 1, 0.5)
-z &lt;- 1/x 
-quantile(z, probs = c(0.025, 0.5, 0.975))</code></pre>
-<pre><code>##       2.5%        50%      97.5% 
-##  0.1366997  0.7317949 19.7103839</code></pre>
+<p>Para la sobredispersión de la binomial negativa, ponemos <span class="math display">\[\phi_s \sim \textrm{Gamma}(1, 0.1)\]</span> Recordamos que la varianza es <span class="math display">\[n_i\theta_i\left(1 + \phi_{s(i)}\right)\]</span> De modo que el factor que multiplica a <span class="math inline">\(n_i\theta_i\)</span> va típicamente de un poco más de 1 (en cuyo caso la varianza <span class="math inline">\(n_i\theta_i\)</span>) hasta alrededor de 40, que tiene sobredispersión considerablemente mayor en relación a la Poisson.</p>
+<pre class="r"><code>x &lt;- rgamma(100000, 1, 0.1)
+quantile(1+x, probs = c(0.01, 0.025, 0.5, 0.975, 0.99)) </code></pre>
+<pre><code>##        1%      2.5%       50%     97.5%       99% 
+##  1.102163  1.253305  7.938531 37.742451 46.435543</code></pre>
 <p>En stan, el modelo es:</p>
 <pre class="bash"><code>cat stan/modelo.stan</code></pre>
 <pre><code>## data {
@@ -494,7 +493,7 @@ quantile(z, probs = c(0.025, 0.5, 0.975))</code></pre>
 ##   // conf
 ##   vector[2] beta_0_param;
 ##   real sigma_param;
-##   vector[2] beta_bn_param;
+##   vector[2] phi_inv_param;
 ##   real sigma_coefs;
 ## 
 ## }
@@ -502,7 +501,7 @@ quantile(z, probs = c(0.025, 0.5, 0.975))</code></pre>
 ## parameters {
 ##   real beta_0;
 ##   vector[n_covariates_f] beta;
-##   vector&lt;lower=0&gt;[n_strata_f] beta_bn;
+##   vector&lt;lower=0&gt;[n_strata_f] phi_inv;
 ##   real&lt;lower=0&gt; sigma;
 ##   vector[n_strata_f] beta_st_raw;
 ## }
@@ -528,9 +527,9 @@ quantile(z, probs = c(0.025, 0.5, 0.975))</code></pre>
 ##   beta ~ normal(0 , sigma_coefs);
 ##   beta_st_raw ~ normal(0, 1);
 ##   sigma ~ normal(0, sigma_param);
-##   beta_bn ~ gamma(beta_bn_param[1], beta_bn_param[2]);
+##   phi_inv ~ gamma(phi_inv_param[1], phi_inv_param[2]);
 ## 
-##   y ~ neg_binomial_2( alpha_bn , beta_bn[stratum] .* alpha_bn);
+##   y ~ neg_binomial_2( alpha_bn , alpha_bn ./ phi_inv[stratum]);
 ## 
 ## }
 ## 
@@ -548,7 +547,7 @@ quantile(z, probs = c(0.025, 0.5, 0.975))</code></pre>
 ##       pred_f = dot_product(x_f[i,], beta);
 ##       theta_f = inv_logit(beta_st[stratum_f[i]] + pred_f);
 ##       alpha_bn_f =  n_f[i] * theta_f;
-##       y_out += neg_binomial_2_rng(alpha_bn_f , beta_bn[stratum_f[i]]*alpha_bn_f);
+##       y_out += neg_binomial_2_rng(alpha_bn_f , alpha_bn_f/phi_inv[stratum_f[i]]);
 ##     }
 ##   }
 ## }</code></pre>
@@ -572,7 +571,7 @@ quantile(z, probs = c(0.025, 0.5, 0.975))</code></pre>
 ##   // conf
 ##   vector[2] beta_0_param;
 ##   real sigma_param;
-##   vector[2] beta_bn_param;
+##   vector[2] phi_inv_param;
 ##   real sigma_coefs;
 ## }
 ## 
@@ -595,7 +594,7 @@ quantile(z, probs = c(0.025, 0.5, 0.975))</code></pre>
 ##   vector[n_covariates_f] beta;
 ##   real beta_0;
 ##   real&lt;lower=0&gt; sigma;
-##   vector[n_strata_f] beta_bn_f;
+##   vector[n_strata_f] phi_inv_f;
 ## 
 ##   int y_f_sim[N_f];
 ## 
@@ -611,7 +610,7 @@ quantile(z, probs = c(0.025, 0.5, 0.975))</code></pre>
 ##   for(j in 1:n_strata_f){
 ##     beta_st_raw[j] = normal_rng(0, 1);
 ##     beta_st[j] = beta_0 + beta_st_raw[j] * sigma;
-##     beta_bn_f[j] = gamma_rng(beta_bn_param[1], beta_bn_param[2]);
+##     phi_inv_f[j] = gamma_rng(phi_inv_param[1], phi_inv_param[2]);
 ##   }
 ##   // simulate counts
 ##   y_out = 0;
@@ -624,7 +623,7 @@ quantile(z, probs = c(0.025, 0.5, 0.975))</code></pre>
 ##       pred_f = dot_product(x_f[i,], beta);
 ##       theta_f = inv_logit(beta_st[stratum_f[i]] + pred_f);
 ##       alpha_bn_f[i] =  n_f[i] * theta_f;
-##       y_f_sim[i] = neg_binomial_2_rng(alpha_bn_f[i] , beta_bn_f[stratum_f[i]]*alpha_bn_f[i]);
+##       y_f_sim[i] = neg_binomial_2_rng(alpha_bn_f[i] , alpha_bn_f[i] / phi_inv_f[stratum_f[i]]);
 ##       y_out += y_f_sim[i];
 ##     //}
 ##   }
