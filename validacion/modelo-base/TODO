@@ -1,13 +1,16 @@
+## General
+
+- Organizar el código para tener un documento base de donde corran todos los reportes de todos los estados
+
 ## Calibración inicial
 
-- Falta correr versiones para Chihuahua,  Colima y Nayarit, con los
+- Falta correr versiones para  Colima y Zacatecas, con los
 tamaños de muestra seleccionados.
 - Incorporar las estratificaciones seleccionadas. Por el momento,
 sólo utiliza distrito federal (estratificación 1).
 - ¿Falta agregar parámetros para checar en calibración algorítmica/inferencial?
 
-
 ## Verificación posterior
 
-- Comenzar sección
-- Checar con varias muestras con el diseño seleccionado
+- Agregar código para probar con muestras censuradas según nuestro modelo de supervivencia.
+
