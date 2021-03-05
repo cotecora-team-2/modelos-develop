@@ -98,7 +98,7 @@ ajuste <- modelo$sample(data = datos_1,
                           max_treedepth = 12,
                           parallel_chains = 4, 
                           show_messages = FALSE)
-ajuste$summary(variables = c("beta_0", "beta", "phi_inv"))
+ajuste$summary(variables = c("beta_0", "beta", "kappa"))
 ```
 ```{r}
 valores_sim <- sims_ensemble_tbl %>% as_tibble() %>% filter(.draw == num_draw) 

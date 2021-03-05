@@ -16,7 +16,7 @@ data {
   // conf
   vector[2] beta_0_param;
   real sigma_param;
-  vector[2] phi_inv_param;
+  vector[2] kappa_param;
   real sigma_coefs;
 }
 
@@ -39,7 +39,7 @@ generated quantities {
   vector[n_covariates_f] beta;
   real beta_0;
   real<lower=0> sigma;
-  vector[n_strata_f] phi_inv_f;
+  vector[n_strata_f] kappa_f;
 
   int y_f_sim[N_f];
 
@@ -55,7 +55,7 @@ generated quantities {
   for(j in 1:n_strata_f){
     beta_st_raw[j] = normal_rng(0, 1);
     beta_st[j] = beta_0 + beta_st_raw[j] * sigma;
-    phi_inv_f[j] = gamma_rng(phi_inv_param[1], phi_inv_param[2]);
+    kappa_f[j] = gamma_rng(kappa_param[1], kappa_param[2]);
   }
   // simulate counts
   y_out = 0;
@@ -68,7 +68,7 @@ generated quantities {
       pred_f = dot_product(x_f[i,], beta);
       theta_f = inv_logit(beta_st[stratum_f[i]] + pred_f);
       alpha_bn_f[i] =  n_f[i] * theta_f;
-      y_f_sim[i] = neg_binomial_2_rng(alpha_bn_f[i] , alpha_bn_f[i] / phi_inv_f[stratum_f[i]]);
+      y_f_sim[i] = neg_binomial_2_rng(alpha_bn_f[i] , alpha_bn_f[i] / kappa_f[stratum_f[i]]);
       y_out += y_f_sim[i];
     //}
   }
