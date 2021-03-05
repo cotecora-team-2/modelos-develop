@@ -1,0 +1,177 @@
+---
+title: "Modelo base - calibración posterior 2018"
+author: "M. Anzarut, F. González, I. Meza, T. Ortiz"
+date: "3/1/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+#devtools::install_github("cotecora-team-2/quickcountmx")
+library(cmdstanr)
+library(posterior)
+library(tidyverse)
+library(patchwork)
+library(quickcountmx)
+theme_set(theme_minimal())
+cb_palette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
+                "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+```
+
+```{r}
+estado <- "ZACATECAS"
+source("R/prep_reportes.R")
+```
+
+
+
+```{r}
+print(parametros)
+#print(sim_datos)
+```
+
+Obtener una muestra
+
+```{r}
+source("R/funciones_calibracion.R")
+candidato <- "AMLO"
+muestra_1 <- obtener_muestra_marco(datos_ent, frac = 0.12, seed = 5711)
+sim_datos$y_f <- datos_ent[[candidato]]
+muestra_1$y <- muestra_1[["votos"]][[candidato]] 
+datos_1 <- c(parametros, muestra_1, sim_datos)
+total <- sim_datos$y_f %>% sum()
+```
+
+```{r}
+ruta <- file.path("./stan/modelo.stan")
+modelo <- cmdstan_model(ruta)
+modelo_sim_indiv <- cmdstan_model(file.path("./stan/modelo_sim_individual.stan"))
+```
+
+
+```{r, message=FALSE, warning=FALSE}
+ajuste <- modelo_sim_indiv$sample(data = datos_1, 
+                          seed = 2211,
+                          iter_sampling = 1000, iter_warmup = 1000,
+                          refresh = 250, 
+                          chains = 4, 
+                          adapt_delta = 0.9,
+                          max_treedepth = 12,
+                          parallel_chains = 4, 
+                          show_messages = TRUE)
+```
+
+
+```{r, message=FALSE, warning=FALSE}
+ajuste$summary(variables = c("y_out", "beta_0", "beta", "kappa"))
+total
+```
+
+```{r}
+bayesplot::mcmc_hist(ajuste$draws("y_out")) +
+  geom_vline(xintercept = total, colour = "red")
+```
+
+Otro candidato:
+
+```{r}
+candidato <- "RAC"
+sim_datos$y_f <- datos_ent[[candidato]]
+muestra_1$y <- muestra_1[["votos"]][[candidato]] 
+datos_1 <- c(parametros, muestra_1, sim_datos)
+total <- sim_datos$y_f %>% sum()
+```
+
+```{r, message=FALSE, warning=FALSE}
+ajuste <- modelo_sim_indiv$sample(data = datos_1, 
+                          seed = 2211,
+                          iter_sampling = 1000, iter_warmup = 1000,
+                          refresh = 250, 
+                          chains = 4, 
+                          adapt_delta = 0.9,
+                          max_treedepth = 12,
+                          parallel_chains = 4, 
+                          show_messages = TRUE)
+```
+
+
+```{r}
+draws_df <- ajuste$draws() %>% as_draws_df()
+bayesplot::mcmc_hist(ajuste$draws("y_out")) +
+  geom_vline(xintercept = total, colour = "red")
+```
+## Predictiva posterior a nivel casilla
+
+```{r}
+set.seed(2121)
+en_muestra <- muestra_1$in_sample
+fuera_muestra <- datos_ent[en_muestra == 0, ]
+muestra_oos <- sample_n(fuera_muestra, 30) %>% 
+  select(no_casilla, estrato_df, y_f = any_of(candidato))
+sims_casilla <- draws_df %>% as_tibble() %>% 
+  select(.draw, contains("y_f_sim")) %>% 
+  pivot_longer(cols = contains("y_f_sim")) %>%
+  mutate(no_casilla = str_extract(name, pattern = "\\d+")) %>% 
+  mutate(no_casilla = as.integer(no_casilla))
+sims_oos <- muestra_oos %>% left_join(sims_casilla, by = "no_casilla")
+ggplot(sims_oos, aes(x = value)) +
+  geom_histogram(fill = "salmon") +
+  facet_wrap(~no_casilla) +
+  geom_vline(aes(xintercept = y_f)) +
+  theme_minimal()
+```
+
+
+
+
+## Verificación posterior para total de votos
+
+```{r}
+set.seed(83441)
+candidato <- "JAMK"
+if(FALSE){
+  ajuste_muestras_2 <- map(1:150, function(rep){
+  muestra_1 <- obtener_muestra_marco(datos_ent, frac = 0.12)
+  sim_datos$y_f <- datos_ent[[candidato]]
+  muestra_1$y <- muestra_1[["votos"]][[candidato]] 
+  datos_1 <- c(parametros, muestra_1, sim_datos)
+  total <- datos_1$y_f %>% sum()
+  ajuste <- modelo$sample(data = datos_1, 
+                          seed = 2131,
+                          iter_sampling = 1000, iter_warmup = 1000,
+                          refresh = 0, 
+                          chains = 4, 
+                          adapt_delta = 0.97,
+                          max_treedepth = 12,
+                          parallel_chains = 4,
+                          show_messages = FALSE)
+  y_out_df <- ajuste$draws() %>% as_draws_df()
+  y_out_df %>% select(y_out) %>% 
+    mutate(rep = rep, total = total)
+  })
+  write_rds(ajuste_muestras_2, "salidas/ajuste-posterior-muestras-2-zac.rds")
+} else {
+  ajuste_muestras_2 <- read_rds("salidas/ajuste-posterior-muestras-2-zac.rds")
+}
+```
+
+```{r}
+ajuste_resumen_tbl <- ajuste_muestras_2 %>% bind_rows() %>% 
+  group_by(rep) %>% 
+  summarise(sup = quantile(y_out, 0.975), inf = quantile(y_out, 0.025),
+            total = first(total))
+ggplot(ajuste_resumen_tbl, aes(x = rep, ymin = inf, ymax = sup)) +
+  geom_hline(aes(yintercept = total), colour = "salmon") +
+  geom_linerange() 
+```
+
+
+```{r}
+ajuste_resumen_tbl %>% 
+  summarise(cobertura = mean(total >= inf & total <= sup), n = n(), error_porc = 100 - 100*mean((sup+inf)/(2*total))) %>% 
+  mutate(error = 2*sqrt(cobertura*(1-cobertura)/n))
+```
+
