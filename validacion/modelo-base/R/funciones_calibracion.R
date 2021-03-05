@@ -11,11 +11,18 @@ obtener_muestra <- function(sims_casillas, num_draw, frac= 0.04, seed = NA){
        in_sample = in_sample, y_f = sims_1$y_f)
 }
 
-obtener_muestra_marco <- function(marco_tbl, frac= 0.04, seed = NA){
+obtener_muestra_marco <- function(marco_tbl, frac = 0.04, seed = NA,
+                                  prop_obs = 1.0, sims_llegadas = NULL){
   muestra_1 <- quickcountmx::select_sample_prop(marco_tbl,
                                                 stratum = estrato_df,
                                                 frac = frac,
                                                 seed = seed)
+  if(prop_obs < 1.0){
+    id_selec <- sample(1:200, 1)
+    muestra_1 <- muestra_1 %>% left_join(sims_llegadas %>% filter(id == id_selec),
+                             by = c("CLAVE_CASILLA", "state_abbr"))
+    muestra_1 <- filter(muestra_1, prop_observado <= prop_obs)
+  }
   in_sample_na <- marco_tbl %>% select(no_casilla) %>%
     left_join(muestra_1 %>% select(no_casilla, estrato_df),
               by = "no_casilla") %>%

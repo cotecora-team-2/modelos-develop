@@ -4,6 +4,8 @@ library(posterior)
 library(tidyverse)
 library(patchwork)
 library(quickcountmx)
+library(pins)
+library(dotenv)
 theme_set(theme_minimal())
 cb_palette <- c("#000000", "#E69F00", "#56B4E9", "#009E73",
                 "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
@@ -11,6 +13,22 @@ cb_palette <- c("#000000", "#E69F00", "#56B4E9", "#009E73",
 
 estados <- c("MICH", "CHIH", "COL", "ZAC", "NAY")
 partidos <- c("AMLO", "JAMK", "RAC", "CAND_IND_01", "CAND_IND_02", "CNR", "VN")
+
+## Bajar tiempos de llegada
+dotenv_file <- '.env'
+path <- './datos'
+load_dot_env(dotenv_file)
+
+board_register_github(name = "mygithub",
+                      repo = "cotecora-team-2/quickcountmx-data",
+                      branch = 'main', token=Sys.getenv("token"))
+
+sims <- pin_get("tiempos_simulaciones", board = "mygithub")
+readr::write_rds(sims, paste(path, "simulaciones_completo.rds", sep = "/"))
+sims_llegadas <- sims %>% group_by(id, state_abbr) %>%
+  mutate(prop_observado = percent_rank(time)) %>%
+  ungroup
+
 
 ## Estratificaciones
 data("conteo_2018")
