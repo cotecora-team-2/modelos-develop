@@ -21,7 +21,7 @@ data {
   vector[2] beta_0_param;
   real sigma_param;
   vector[2] kappa_param;
-
+  real sigma_coefs;
 }
 
 parameters {
@@ -50,7 +50,7 @@ transformed parameters {
 model {
 
   beta_0 ~ normal(beta_0_param[1], beta_0_param[2]);
-  beta ~ normal(0 , 1);
+  beta ~ normal(0 , sigma_coefs);
   beta_st_raw ~ normal(0, 1);
   sigma ~ normal(0, sigma_param);
   kappa ~ gamma(kappa_param[1], kappa_param[2]);
