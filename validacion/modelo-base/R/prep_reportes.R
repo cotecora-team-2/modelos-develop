@@ -12,7 +12,7 @@ cb_palette <- c("#000000", "#E69F00", "#56B4E9", "#009E73",
 
 
 estados <- c("MICH", "CHIH", "COL", "ZAC", "NAY")
-partidos <- c("AMLO", "JAMK", "RAC", "CAND_IND_01", "CAND_IND_02", "CNR", "VN")
+partidos <- c("AMLO", "JAMK", "RAC", "CAND_IND_01", "CAND_IND_02", "OTROS")
 
 ## Bajar tiempos de llegada
 dotenv_file <- '.env'
@@ -53,6 +53,7 @@ conteo_2018_estados <- conteo_2018 %>%
   group_by(state_abbr) %>%
   left_join(comp_15)
 conteo_2018_estados <- conteo_2018_estados %>%
+  mutate(OTROS = CNR + VN) %>%
   group_by(ID_ESTADO, ID_DISTRITO) %>%
   mutate(comp_votos = ifelse(is.na(comp_votos), mean(comp_votos, na.rm = TRUE),
                              comp_votos))
@@ -92,7 +93,7 @@ marco_conf_selec <- marco_conf %>% semi_join(estratif_selec) %>%
 datos_ent <- marco_conf_selec %>% filter(NOMBRE_ESTADO == estado) %>%
   # usar estratificacion anterior por ahora
   mutate(estrato_df = as.numeric(factor(estrato_df))) %>%
-  select(CLAVE_CASILLA, AMLO, RAC, JAMK, CAND_IND_02, estrato_df,
+  select(any_of(partidos), CLAVE_CASILLA, estrato_df,
          ln = LISTA_NOMINAL_CASILLA, componente = .fittedPC1, TIPO_CASILLA.x) %>%
   mutate(in_sample = 0, y_f = 0) %>%
   mutate(ln = ifelse(ln == 0, 1200, ln)) %>%
@@ -101,7 +102,7 @@ datos_ent <- marco_conf_selec %>% filter(NOMBRE_ESTADO == estado) %>%
   ungroup()
 sim_datos_lista <- list()
 x <- datos_ent %>%
-  select(ln, componente, casilla_esp) %>%
+  select(ln, componente) %>%
   as.matrix()
 x_f <- scale(x)
 sim_datos_lista$x_f <- x_f

@@ -12,13 +12,16 @@ obtener_muestra <- function(sims_casillas, num_draw, frac= 0.04, seed = NA){
 }
 
 obtener_muestra_marco <- function(marco_tbl, frac = 0.04, seed = NA,
-                                  prop_obs = 1.0, sims_llegadas = NULL){
+                                  prop_obs = 1.0, sims_llegadas = NULL,
+                                  id_selec=NULL, partidos = partidos){
   muestra_1 <- quickcountmx::select_sample_prop(marco_tbl,
                                                 stratum = estrato_df,
                                                 frac = frac,
                                                 seed = seed)
   if(prop_obs < 1.0){
-    id_selec <- sample(1:200, 1)
+    if(is.null(id_selec)){
+      id_selec <- sample(1:200, 1)
+    }
     muestra_1 <- muestra_1 %>% left_join(sims_llegadas %>% filter(id == id_selec),
                              by = c("CLAVE_CASILLA", "state_abbr"))
     muestra_1 <- filter(muestra_1, prop_observado <= prop_obs)
@@ -28,7 +31,7 @@ obtener_muestra_marco <- function(marco_tbl, frac = 0.04, seed = NA,
               by = "no_casilla") %>%
     pull(estrato_df)
   in_sample <- ifelse(is.na(in_sample_na), 0, 1)
-  votos <- muestra_1 %>% select(AMLO, RAC, JAMK, CAND_IND_02)
+  votos <- muestra_1 %>% select(any_of(partidos))
   list(y = muestra_1$y_f, N = length(muestra_1$y_f),
        in_sample = in_sample,
        stratum = muestra_1$estrato_df,
