@@ -49,9 +49,9 @@ $$y_{i} \sim \textrm{NegBin} \left( \mu_i, \phi_i \right)$$
 la parametrización de la binomial negativa que seleccionamos es en la que
 
 - El valor esperado de $y_i$ es $\mu_i = n_i\theta_i$, donde $\theta_i$ depende de
-las covariables.
+las covariables, y la varianza es $\mu_i(1 + \mu_i/\phi_i)$.
 - El valor de la sobredispersión es $\phi_i = \frac{n_i\theta_i}{\kappa_{s(i)}}$.
-- La varianza se simplifica a $n_i\theta_i\left(1 + {\kappa_{s(i)}}\right)$
+- La varianza se simplifica entonces a $n_i\theta_i\left(1 + {\kappa_{s(i)}}\right)$
 
 ### Valor esperado
 
@@ -97,7 +97,7 @@ De modo que el factor que multiplica a $n_i\theta_i$ va típicamente de un poco 
 1 (en cuyo caso la varianza $n_i\theta_i$) hasta alrededor de 40, que tiene sobredispersión considerablemente mayor en relación a la Poisson.
 
 ```{r}
-x <- rgamma(100000, 1, 0.1)
+x <- rgamma(100000, parametros$kappa_param[1], parametros$kappa_param[2])
 quantile(1+x, probs = c(0.01, 0.025, 0.5, 0.975, 0.99)) 
 ```
 En stan, el modelo es:
