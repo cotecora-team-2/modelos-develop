@@ -1,0 +1,139 @@
+---
+title: "Modelo base conjunto - calibración posterior 2018"
+author: "M. Anzarut, F. González, I. Meza, T. Ortiz"
+date: "3/1/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+estado <- "NAYARIT"
+source("R/prep_reportes.R")
+```
+
+
+
+```{r}
+#parametros$beta_0_param <- c(-2, 3)
+print(parametros)
+#print(sim_datos)
+```
+
+Obtener una muestra
+
+```{r}
+source("R/funciones_calibracion.R")
+muestra_1 <- obtener_muestra_marco(datos_ent, frac = 0.15, seed = 1978, 
+                                   partidos = partidos)
+sim_datos$y_f <- datos_ent %>% select(any_of(partidos)) %>% 
+  as.matrix()
+muestra_1$y <- muestra_1[["votos"]] %>% 
+  as.matrix()
+muestra_1$p <- length(partidos)
+print(length(muestra_1$y))
+datos_1 <- c(parametros, muestra_1, sim_datos)
+total <- apply(sim_datos$y_f, 2, sum)
+prop_votos <- total / sum(total)
+```
+
+```{r}
+ruta <- file.path("./stan/modelo_conjunto.stan")
+md <- cmdstan_model(ruta)
+```
+
+
+```{r, message=FALSE, warning=FALSE}
+ajuste <- md$sample(data = datos_1, 
+                          seed = 21211,
+                          iter_sampling = 2000, iter_warmup = 1000,
+                          refresh = 250, 
+                          chains = 4, 
+                          adapt_delta = 0.9,
+                          max_treedepth = 10,
+                          parallel_chains = 4, 
+                          show_messages = TRUE)
+```
+
+
+```{r, message=FALSE, warning=FALSE}
+ajuste$summary(variables = c("prop_votos", "beta_0", "beta", "kappa"))
+total
+ajuste$cmdstan_diagnose()
+```
+
+```{r}
+ajuste_df <- ajuste$draws("prop_votos") %>% as_draws_df() %>% as_tibble %>% 
+  pivot_longer(cols = starts_with("prop_votos"), names_to = "variable",
+               values_to = "value")
+partidos_df <- tibble(variable = dimnames(ajuste$draws("prop_votos") )$variable,
+                      partidos = partidos,
+                      prop = prop_votos)
+ajuste_df <- left_join(ajuste_df, partidos_df)
+ggplot(ajuste_df, aes(x = value)) + 
+  facet_wrap(~ partidos, scales = "free_x") +
+  geom_histogram() +
+  geom_vline(aes(xintercept = prop)) +
+  scale_y_sqrt()
+```
+
+## Verificación posterior para porcentaje de votos
+
+```{r}
+set.seed(8342)
+if(FALSE){
+  ajuste_muestras <- map(1:100, function(rep){
+  muestra_1 <- obtener_muestra_marco(datos_ent, frac = 0.15)
+  sim_datos$y_f <- datos_ent %>% select(all_of(partidos)) %>% as.matrix()
+  muestra_1$y <- muestra_1[["votos"]] %>% as.matrix() 
+  muestra_1$p <- ncol(muestra_1$y)
+  datos_1 <- c(parametros, muestra_1, sim_datos)
+  total <- apply(datos_1$y_f, 2 , sum)
+  prop_votos <- total / sum(total)
+  print(rep)
+  ajuste <- md$sample(data = datos_1, 
+                          seed = 21312,
+                          iter_sampling = 1500, iter_warmup = 1000,
+                          refresh = 0, 
+                          chains = 5, 
+                          adapt_delta = 0.95,
+                          max_treedepth = 10,
+                          parallel_chains = 5,
+                          show_messages = FALSE)
+  y_out_df <- ajuste$draws(c("prop_votos", "y_out")) %>% 
+    as_draws_df() %>% as_tibble()
+  y_out_df <- y_out_df %>% select(starts_with("prop_votos"), starts_with("y_out")) %>% 
+    mutate(rep = rep)
+  list(votos = y_out_df, ajuste = ajuste)
+  })
+  write_rds(ajuste_muestras, "salidas/ajuste-posterior-muestras-2-multi.rds")
+} else {
+  ajuste_muestras <- read_rds("salidas/ajuste-posterior-muestras-2-multi.rds")
+}
+```
+
+```{r}
+ajuste_muestras_2 <- map(ajuste_muestras, "votos")
+ajuste_resumen_tbl <- ajuste_muestras_2 %>% bind_rows() %>%
+  pivot_longer(cols = starts_with("prop_votos"), names_to = "variable", values_to = "prop") %>% 
+  group_by(rep, variable) %>% 
+  summarise(sup = quantile(prop, 0.975), inf = quantile(prop, 0.025)) %>% 
+  left_join(partidos_df, by = "variable")  
+ggplot(ajuste_resumen_tbl, aes(x = rep, ymin = inf, ymax = sup)) +
+  geom_hline(aes(yintercept = prop), colour = "salmon") +
+  geom_linerange() + facet_wrap(~ partidos, scales = "free_y") 
+```
+
+
+```{r}
+ajuste_resumen_tbl %>% 
+  group_by(partidos) %>% 
+  summarise(cobertura_inf = mean(prop >= inf), 
+            cobuertura_sup = mean(prop <= sup), 
+            cobertura = mean(prop>= inf  & prop<= sup),
+            n = n(),
+            precision = mean((sup-inf)/(2))) 
+```
+
