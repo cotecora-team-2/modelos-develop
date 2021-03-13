@@ -4,13 +4,31 @@ library(posterior)
 library(tidyverse)
 library(patchwork)
 library(quickcountmx)
+library(pins)
+library(dotenv)
 theme_set(theme_minimal())
 cb_palette <- c("#000000", "#E69F00", "#56B4E9", "#009E73",
                 "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 
 
 estados <- c("MICH", "CHIH", "COL", "ZAC", "NAY")
-partidos <- c("AMLO", "JAMK", "RAC", "CAND_IND_01", "CAND_IND_02", "CNR", "VN")
+partidos <- c("AMLO", "JAMK", "RAC", "CAND_IND_01", "CAND_IND_02", "OTROS")
+
+## Bajar tiempos de llegada
+dotenv_file <- '.env'
+path <- './datos'
+load_dot_env(dotenv_file)
+
+board_register_github(name = "mygithub",
+                      repo = "cotecora-team-2/quickcountmx-data",
+                      branch = 'main', token=Sys.getenv("token"))
+
+sims <- pin_get("tiempos_simulaciones", board = "mygithub")
+readr::write_rds(sims, paste(path, "simulaciones_completo.rds", sep = "/"))
+sims_llegadas <- sims %>% group_by(id, state_abbr) %>%
+  mutate(prop_observado = percent_rank(time)) %>%
+  ungroup
+
 
 ## Estratificaciones
 data("conteo_2018")
@@ -35,6 +53,7 @@ conteo_2018_estados <- conteo_2018 %>%
   group_by(state_abbr) %>%
   left_join(comp_15)
 conteo_2018_estados <- conteo_2018_estados %>%
+  mutate(OTROS = CNR + VN) %>%
   group_by(ID_ESTADO, ID_DISTRITO) %>%
   mutate(comp_votos = ifelse(is.na(comp_votos), mean(comp_votos, na.rm = TRUE),
                              comp_votos))
@@ -74,7 +93,7 @@ marco_conf_selec <- marco_conf %>% semi_join(estratif_selec) %>%
 datos_ent <- marco_conf_selec %>% filter(NOMBRE_ESTADO == estado) %>%
   # usar estratificacion anterior por ahora
   mutate(estrato_df = as.numeric(factor(estrato_df))) %>%
-  select(CLAVE_CASILLA, AMLO, RAC, JAMK, CAND_IND_02, estrato_df,
+  select(any_of(partidos), CLAVE_CASILLA, estrato_df,
          ln = LISTA_NOMINAL_CASILLA, componente = .fittedPC1, TIPO_CASILLA.x) %>%
   mutate(in_sample = 0, y_f = 0) %>%
   mutate(ln = ifelse(ln == 0, 1200, ln)) %>%
@@ -83,7 +102,7 @@ datos_ent <- marco_conf_selec %>% filter(NOMBRE_ESTADO == estado) %>%
   ungroup()
 sim_datos_lista <- list()
 x <- datos_ent %>%
-  select(ln, componente, casilla_esp) %>%
+  select(ln, componente) %>%
   as.matrix()
 x_f <- scale(x)
 sim_datos_lista$x_f <- x_f
