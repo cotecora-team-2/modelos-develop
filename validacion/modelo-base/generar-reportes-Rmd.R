@@ -25,3 +25,5 @@ pwalk(params, safely_render,
       rmd_file = "modelo-base-calibracion-inicial.Rmd")
 
 # Generar calibración 2018
+pwalk(params, safely_render,
+      rmd_file = "modelo-base-calibracion-posterior-2018.Rmd")
