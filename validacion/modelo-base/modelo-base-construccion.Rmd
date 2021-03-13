@@ -44,18 +44,19 @@ Los resúmenes de interés principal son:
 ## Definición del modelo
 
 Modelamos el número de votos obtenidos para el candidato como
-$$y_{i} \sim \textrm{NegBin} (n_{i}\theta_i, n_i\theta_i\phi_{s(i)})$$
+$$y_{i} \sim \textrm{NegBin} \left( \mu_i, \phi_i \right)$$
 
 la parametrización de la binomial negativa que seleccionamos es en la que
 
-- El valor esperado de $y_i$ es $n_i\theta_i$
-- La varianza es $n_i\theta_i\left(1 + \frac{1}{\phi_{s(i)}}\right)$
+- El valor esperado de $y_i$ es $\mu_i = n_i\theta_i$, donde $\theta_i$ depende de
+las covariables, y la varianza es $\mu_i(1 + \mu_i/\phi_i)$.
+- El valor de la sobredispersión es $\phi_i = \frac{n_i\theta_i}{\kappa_{s(i)}}$.
+- La varianza se simplifica entonces a $n_i\theta_i\left(1 + {\kappa_{s(i)}}\right)$
 
 ### Valor esperado
 
 Ponemos 
-$$\alpha_i = n_i\theta_i,$$ 
-y finalmente
+
 $$\theta_i = \textrm{invlogit}( \beta_{s(i)}^0 + \beta_{}^t x_{i}),$$ 
 donde $x_{i}$ es el vector
 de covariables centradas y estandarizadas para la casilla $i$. Estas covariables
@@ -89,16 +90,15 @@ $$\beta_j \sim N(0,0.25)$$
 ### Varianza y sobredispersión
 
 Para la sobredispersión de la binomial negativa, ponemos
-$$\phi_s \sim \textrm{Gamma}(`r parametros$beta_bn_param[1]`, `r parametros$beta_bn_param[2]`)$$
+$$k_s \sim \textrm{Gamma}(`r parametros$kappa_param[1]`, `r parametros$kappa_param[2]`)$$
 Recordamos que la varianza es
-$$n_i\theta_i\left(1 + \phi_{s(i)}^{-1}\right)$$
+$$n_i\theta_i\left(1 + \kappa_{s(i)}\right)$$
 De modo que el factor que multiplica a $n_i\theta_i$ va típicamente de un poco más de
-1 (en cuyo caso la varianza $n_i\theta_i$) hasta alrededor de 20, que tiene sobredispersión considerablemente mayor en relación a la binomial.
+1 (en cuyo caso la varianza $n_i\theta_i$) hasta alrededor de 40, que tiene sobredispersión considerablemente mayor en relación a la Poisson.
 
 ```{r}
-x <- rgamma(10000, 1, 0.5)
-z <- 1/x 
-quantile(z, probs = c(0.025, 0.5, 0.975))
+x <- rgamma(100000, parametros$kappa_param[1], parametros$kappa_param[2])
+quantile(1+x, probs = c(0.01, 0.025, 0.5, 0.975, 0.99)) 
 ```
 En stan, el modelo es:
 
