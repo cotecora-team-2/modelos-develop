@@ -50,7 +50,8 @@ prop_observadas <- c(0.05, 0.15, 0.25, 0.5, 0.6, 0.7, 0.8, 0.9, 0.99)
 ajustes_tiempo <- map(prop_observadas, function(prop){
   muestra_1 <- obtener_muestra_marco(datos_ent, frac = 0.20, 
                                      prop_obs = prop, seed = 1198, 
-                                     sims_llegadas = sims_llegadas, id_selec = 25)
+                                     sims_llegadas = sims_llegadas, id_selec = 91,
+                                     partidos = partidos)
   sim_datos$y_f <- datos_ent %>% select(any_of(partidos)) %>% 
   as.matrix()
   muestra_1$y <- muestra_1[["votos"]] %>% 
@@ -94,7 +95,7 @@ ggplot(resumen_tiempos_tbl, aes(x = prop_obs, y = mediana,
                                 ymin = inf, ymax = sup,
                                 colour = partidos, fill = partidos)) +
    geom_hline(aes(yintercept = prop_real)) +
-  geom_line() +
+  geom_line() + geom_point() +´
   geom_ribbon(alpha =0.5, size = 0) 
  
 ```

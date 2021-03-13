@@ -83,7 +83,7 @@ ggplot(ajuste_df, aes(x = value)) +
 
 ```{r}
 set.seed(8342)
-if(FALSE){
+if(TRUE){
   ajuste_muestras <- map(1:100, function(rep){
   muestra_1 <- obtener_muestra_marco(datos_ent, frac = 0.15)
   sim_datos$y_f <- datos_ent %>% select(all_of(partidos)) %>% as.matrix()
