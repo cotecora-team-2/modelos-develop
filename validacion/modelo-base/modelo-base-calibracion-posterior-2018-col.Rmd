@@ -38,7 +38,8 @@ Obtener una muestra
 ```{r}
 source("R/funciones_calibracion.R")
 candidato <- "AMLO"
-muestra_1 <- obtener_muestra_marco(datos_ent, frac = 0.15, seed = 5711)
+muestra_1 <- obtener_muestra_marco(datos_ent, frac = 0.15, seed = 5711, 
+                                   partidos = partidos)
 sim_datos$y_f <- datos_ent[[candidato]]
 muestra_1$y <- muestra_1[["votos"]][[candidato]] 
 datos_1 <- c(parametros, muestra_1, sim_datos)
@@ -134,7 +135,7 @@ set.seed(83441)
 candidato <- "JAMK"
 if(FALSE){
   ajuste_muestras_2 <- map(1:150, function(rep){
-  muestra_1 <- obtener_muestra_marco(datos_ent, frac = 0.15)
+  muestra_1 <- obtener_muestra_marco(datos_ent, frac = 0.15, partidos = partidos)
   sim_datos$y_f <- datos_ent[[candidato]]
   muestra_1$y <- muestra_1[["votos"]][[candidato]] 
   datos_1 <- c(parametros, muestra_1, sim_datos)
