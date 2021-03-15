@@ -3,15 +3,27 @@ title: "Calibración del ensemble"
 author: "M. Anzarut, F. González, I. Meza, T. Ortiz"
 date: "2/26/2021"
 output: html_document
+params:
+  estado:
+        value: NAYARIT
+  frac: 
+        value: 0.15
+  adapt_delta: 
+        value: 0.95
+  simular: 
+        value: FALSE
 ---
 
+# `r params$estado`
+
+Fracción de muestreo: `r params$frac`
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r}
-estado <- "NAYARIT"
+estado <- params$estado
 source("R/prep_reportes.R")
 ```
 
@@ -19,7 +31,6 @@ source("R/prep_reportes.R")
 
 ```{r}
 print(parametros)
-#print(sim_datos)
 ```
 
 ```{r}
@@ -46,6 +57,7 @@ votos_tbl <- sims_ensemble_tbl %>% select(.draw, y_out) %>%
   mutate(prop_nominal = y_out / total_nominal)
 qplot(sims_ensemble_tbl$y_out / total_nominal, binwidth = 0.025 )
 ```
+
 ```{r}
 sims_casillas <- sims_ensemble_tbl %>% 
   nest(y_sim = contains("y_f_sim")) %>% 
@@ -56,6 +68,7 @@ sims_casillas <- sims_ensemble_tbl %>%
 sims_casillas <- sims_casillas %>% left_join(datos_ent %>% select(no_casilla, estrato_df, ln)) 
 sims_casillas
 ```
+
 Resumen por estrato
 
 ```{r}
@@ -81,7 +94,8 @@ source("R/funciones_calibracion.R")
 
 ```{r}
 num_draw <- 121
-datos_muestra <- obtener_muestra(sims_casillas, num_draw, frac = 0.15, seed = 1132)
+datos_muestra <- obtener_muestra(sims_casillas, num_draw, 
+                                 frac = params$frac, seed = 1132)
 datos_1 <- c(sim_ensemble_datos, datos_muestra)
 ```
 
@@ -94,7 +108,7 @@ ajuste <- modelo$sample(data = datos_1,
                           iter_sampling = 1000, iter_warmup = 1000,
                           refresh = 250, 
                           chains = 4, 
-                          adapt_delta = 0.95,
+                          adapt_delta = params$adapt_delta,
                           max_treedepth = 12,
                           parallel_chains = 4, 
                           show_messages = FALSE)
@@ -102,7 +116,7 @@ ajuste$summary(variables = c("beta_0", "beta", "kappa"))
 ```
 ```{r}
 valores_sim <- sims_ensemble_tbl %>% as_tibble() %>% filter(.draw == num_draw) 
-valores_sim
+valores_sim %>% select(y_out, beta_0, sigma, contains("kappa"))
 ```
 
 ```{r}
@@ -122,20 +136,20 @@ ggplot(y_sims, aes(x = y_out)) +
 ## Calibración algorítmica
 
 ```{r, warning = FALSE, message = FALSE}
-reajustar_ensemble <- FALSE
 set.seed(82823)
-if(reajustar_ensemble){
+if(params$simular){
 ajustes_ensemble <- 
-  map(1:50, ~ ajustar_diagnosticos(sims_casillas, .x, frac = 0.15,
+  map(1:100, ~ ajustar_diagnosticos(sims_casillas, .x, frac = params$frac,
         modelo = modelo, 
         datos = sim_ensemble_datos,
-        params = sims_ensemble_tbl[.x, ] %>% as_tibble %>% select(y_out, beta_0, sigma),
-        adapt_delta = 0.95, max_treedepth = 12,
+        params = sims_ensemble_tbl[.x, ] %>% as_tibble %>% 
+          select(y_out, beta_0, sigma),
+        adapt_delta = params$adapt_delta, max_treedepth = 10,
         iter_warmup = 500, iter_sampling = 500)) %>% 
   bind_rows()
-  write_rds(ajustes_ensemble, "salidas/ensemble_ajustes_in.rds")
+  write_rds(ajustes_ensemble, paste0("salidas/ensemble_ajustes_in","_", estado, ".rds"))
 } else {
-  ajustes_ensemble <- read_rds("salidas/ensemble_ajustes_in.rds")
+  ajustes_ensemble <- read_rds(paste0("salidas/ensemble_ajustes_in","_", estado, ".rds"))
 }
 ```
 

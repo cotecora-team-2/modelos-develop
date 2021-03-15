@@ -3,14 +3,27 @@ title: "Modelo base - calibración posterior 2018"
 author: "M. Anzarut, F. González, I. Meza, T. Ortiz"
 date: "3/1/2021"
 output: html_document
+params:
+  estado:
+        value: NAYARIT
+  frac: 
+        value: 0.15
+  adapt_delta: 
+        value: 0.95
+  simular: 
+        value: FALSE
 ---
+
+# `r params$estado`
+
+Fracción de muestreo: `r params$frac`
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r}
-estado <- "NAYARIT"
+estado <- params$estado
 source("R/prep_reportes.R")
 ```
 
@@ -26,7 +39,7 @@ Obtener una muestra
 ```{r}
 source("R/funciones_calibracion.R")
 candidato <- "AMLO"
-muestra_1 <- obtener_muestra_marco(datos_ent, frac = 0.15, seed = 5711, 
+muestra_1 <- obtener_muestra_marco(datos_ent, frac = params$frac, seed = 5711, 
                                    partidos = partidos)
 sim_datos$y_f <- datos_ent[[candidato]]
 muestra_1$y <- muestra_1[["votos"]][[candidato]] 
@@ -47,8 +60,8 @@ ajuste <- modelo_sim_indiv$sample(data = datos_1,
                           iter_sampling = 1000, iter_warmup = 1000,
                           refresh = 250, 
                           chains = 4, 
-                          adapt_delta = 0.95,
-                          max_treedepth = 12,
+                          adapt_delta = params$adapt_delta,
+                          max_treedepth = 10,
                           parallel_chains = 4, 
                           show_messages = TRUE)
 ```
@@ -80,7 +93,7 @@ ajuste <- modelo_sim_indiv$sample(data = datos_1,
                           iter_sampling = 1000, iter_warmup = 1000,
                           refresh = 250, 
                           chains = 4, 
-                          adapt_delta = 0.95,
+                          adapt_delta = params$adapt_delta,
                           max_treedepth = 12,
                           parallel_chains = 4, 
                           show_messages = TRUE)
@@ -121,9 +134,9 @@ ggplot(sims_oos, aes(x = value)) +
 ```{r}
 set.seed(8341)
 candidato <- "AMLO"
-if(FALSE){
+if(params$simular){
   ajuste_muestras_2 <- map(1:100, function(rep){
-  muestra_1 <- obtener_muestra_marco(datos_ent, frac = 0.15, partidos = partidos)
+  muestra_1 <- obtener_muestra_marco(datos_ent, frac = params$frac, partidos = partidos)
   sim_datos$y_f <- datos_ent[[candidato]]
   muestra_1$y <- muestra_1[["votos"]][[candidato]] 
   datos_1 <- c(parametros, muestra_1, sim_datos)
@@ -131,10 +144,10 @@ if(FALSE){
   print(rep)
   ajuste <- modelo$sample(data = datos_1, 
                           seed = 2131,
-                          iter_sampling = 1000, iter_warmup = 1000,
+                          iter_sampling = 1500, iter_warmup = 1000,
                           refresh = 0, 
-                          chains = 4, 
-                          adapt_delta = 0.95,
+                          chains = 6, 
+                          adapt_delta = params$adapt_delta,
                           max_treedepth = 12,
                           parallel_chains = 4,
                           show_messages = FALSE)
@@ -142,9 +155,9 @@ if(FALSE){
   y_out_df %>% select(y_out) %>% 
     mutate(rep = rep, total = total)
   })
-  write_rds(ajuste_muestras_2, "salidas/ajuste-posterior-muestras-2.rds")
+  write_rds(ajuste_muestras_2, paste0("salidas/ajuste-posterior-muestras","-", estado, ".rds"))
 } else {
-  ajuste_muestras_2 <- read_rds("salidas/ajuste-posterior-muestras-2.rds")
+  ajuste_muestras_2 <- read_rds(paste0("salidas/ajuste-posterior-muestras","-", estado, ".rds"))
 }
 ```
 
