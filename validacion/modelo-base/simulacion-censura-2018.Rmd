@@ -47,11 +47,11 @@ md <- cmdstan_model(ruta)
 
 
 ```{r, message=FALSE, warning=FALSE}
-prop_observadas <- c(0.05, 0.10, 0.25, 0.5, 0.6, 0.7, 0.8, 0.95) 
+prop_observadas <- c(0.05, 0.25, 0.6, 0.7, 0.8, 0.95, 0.99) 
 ajustes_tiempo <- map(prop_observadas, function(prop){
   muestra_1 <- obtener_muestra_marco(datos_ent, frac = frac, 
-                                     prop_obs = prop, seed = 1198, 
-                                     sims_llegadas = sims_llegadas, id_selec = 91,
+                                     prop_obs = prop, seed = 11918, 
+                                     sims_llegadas = sims_llegadas, id_selec = 92,
                                      partidos = partidos)
   sim_datos$y_f <- datos_ent %>% select(any_of(partidos)) %>% 
   as.matrix()
@@ -60,6 +60,8 @@ ajustes_tiempo <- map(prop_observadas, function(prop){
   muestra_1$p <- length(partidos)
   print(dim(muestra_1$y))
   datos_1 <- c(parametros, muestra_1, sim_datos)
+  datos_1$f_bias <- 10
+  datos_1$p_obs <- prop
   ajuste <- md$sample(data = datos_1, 
                           seed = 21211,
                           iter_sampling = 1500, iter_warmup = 1000,
@@ -100,3 +102,60 @@ ggplot(resumen_tiempos_tbl, aes(x = prop_obs, y = mediana,
   geom_ribbon(alpha =0.5, size = 0) 
 ```
 
+
+
+```{r, message=FALSE, warning=FALSE}
+prop_observadas <- c(0.05, 0.25, 0.6, 0.7, 0.8, 0.95, 0.99) 
+ajustes_tiempo <- map(prop_observadas, function(prop){
+  muestra_1 <- obtener_muestra_marco(datos_ent, frac = frac, 
+                                     prop_obs = prop, seed = 11918, 
+                                     sims_llegadas = sims_llegadas, id_selec = 92,
+                                     partidos = partidos)
+  sim_datos$y_f <- datos_ent %>% select(any_of(partidos)) %>% 
+  as.matrix()
+  muestra_1$y <- muestra_1[["votos"]] %>% 
+  as.matrix()
+  muestra_1$p <- length(partidos)
+  print(dim(muestra_1$y))
+  datos_1 <- c(parametros, muestra_1, sim_datos)
+  datos_1$f_bias <- 5
+  datos_1$p_obs <- prop
+  ajuste <- md$sample(data = datos_1, 
+                          seed = 21211,
+                          iter_sampling = 1500, iter_warmup = 1000,
+                          refresh = 0, 
+                          chains = 5, 
+                          adapt_delta = 0.95,
+                          max_treedepth = 10,
+                          parallel_chains = 5, 
+                          show_messages = FALSE)
+  salida_tbl <- ajuste$draws("y_out") %>% as_draws_df() %>% 
+    as_tibble() %>% mutate(prop_obs = prop)
+  salida_tbl
+})
+```
+
+
+
+```{r}
+ajustes_tiempos_tbl <- bind_rows(ajustes_tiempo) %>%
+  pivot_longer(cols = starts_with("y_out"), names_to = "variable",
+               values_to = "y_out") %>% 
+  group_by(.draw, .chain, .iteration, prop_obs) %>% 
+  mutate(prop_sim = y_out / sum(y_out))
+partidos_df <- tibble(variable = names(ajustes_tiempo[[1]])[1:length(partidos)],
+                      partidos = partidos,
+                      prop = prop_votos)  
+resumen_tiempos_tbl <- left_join(ajustes_tiempos_tbl, partidos_df) %>% 
+  group_by(prop_obs, partidos) %>% 
+  summarise(mediana = quantile(prop_sim, 0.5), 
+            inf = quantile(prop_sim, 0.025),
+            sup = quantile(prop_sim, 0.975),
+            prop_real = first(prop))
+ggplot(resumen_tiempos_tbl, aes(x = prop_obs, y = mediana,
+                                ymin = inf, ymax = sup,
+                                colour = partidos, fill = partidos)) +
+  geom_hline(aes(yintercept = prop_real)) +
+  geom_line() + geom_point() +
+  geom_ribbon(alpha =0.5, size = 0) 
+```

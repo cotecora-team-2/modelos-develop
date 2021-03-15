@@ -11,19 +11,21 @@ data {
   int stratum_f[N_f];
   matrix[N_f, n_covariates_f] x_f;
 
+
   // sample
   int N; // number of stations
   int<lower=0> y[N, p]; // observed vote counts
   vector<lower=0>[N] n; // nominal counts
   int stratum[N];
   matrix[N, n_covariates_f] x;
+  real<lower=0> p_obs;
 
   // conf
   vector[2] beta_0_param;
   real sigma_param;
   vector[2] kappa_param;
   real sigma_coefs;
-
+  real f_bias;
 }
 
 parameters {
@@ -70,19 +72,22 @@ generated quantities {
   real alpha_bn_f;
   real pred_f;
   real total;
+  real w_bias;
+
 
   for(k in 1:p){
-  y_out[k] = 0;
-  for(i in 1:N_f){
-    if(in_sample[i] == 1){
-      y_out[k] += y_f[i,k];
-    } else {
-      pred_f = dot_product(x_f[i,], beta[,k]);
-      theta_f = inv_logit(beta_st[stratum_f[i],k] + pred_f);
-      alpha_bn_f =  n_f[i] * theta_f;
-      y_out[k] += neg_binomial_2_rng(alpha_bn_f , alpha_bn_f/kappa[stratum_f[i],k]);
+    w_bias = normal_rng(0, sqrt(1 - p_obs) / f_bias);
+    y_out[k] = 0;
+    for(i in 1:N_f){
+      if(in_sample[i] == 1){
+        y_out[k] += y_f[i,k];
+      } else {
+        pred_f = dot_product(x_f[i,], beta[,k] + w_bias);
+        theta_f = inv_logit(beta_st[stratum_f[i],k] + pred_f);
+        alpha_bn_f =  n_f[i] * theta_f;
+        y_out[k] += neg_binomial_2_rng(alpha_bn_f , alpha_bn_f/kappa[stratum_f[i],k]);
+      }
     }
-  }
   }
   total = sum(y_out);
   for(k in 1:p){

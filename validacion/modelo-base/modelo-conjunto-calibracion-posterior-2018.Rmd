@@ -46,6 +46,8 @@ md <- cmdstan_model(ruta)
 
 
 ```{r, message=FALSE, warning=FALSE}
+datos_1$f_bias <- 10
+datos_1$p_obs <- 0.99
 ajuste <- md$sample(data = datos_1, 
                           seed = 21211,
                           iter_sampling = 2000, iter_warmup = 1000,
@@ -90,6 +92,10 @@ if(TRUE){
   muestra_1$y <- muestra_1[["votos"]] %>% as.matrix() 
   muestra_1$p <- ncol(muestra_1$y)
   datos_1 <- c(parametros, muestra_1, sim_datos)
+  # sesgo
+  datos_1$f_bias <- 10
+  datos_1$p_obs <- 0.99
+  # 
   total <- apply(datos_1$y_f, 2 , sum)
   prop_votos <- total / sum(total)
   print(rep)
