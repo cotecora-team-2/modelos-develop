@@ -76,7 +76,7 @@ generated quantities {
 
 
   for(k in 1:p){
-    w_bias = normal_rng(0, sqrt(1 - p_obs) / f_bias);
+    w_bias = normal_rng(0, (1 - p_obs) / f_bias);
     y_out[k] = 0;
     for(i in 1:N_f){
       if(in_sample[i] == 1){
