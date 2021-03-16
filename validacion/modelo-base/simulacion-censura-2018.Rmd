@@ -11,8 +11,8 @@ library(patchwork)
 ```
 
 ```{r}
-estado <- "COLIMA"
-frac <- 0.20
+estado <- "CHIHUAHUA"
+frac <- 0.07
 source("R/prep_reportes.R")
 ```
 
@@ -47,15 +47,19 @@ md <- cmdstan_model(ruta)
 ```
 
 ```{r}
-seed_muestra <- 49321
-seed_tiempos <- 14
+seed_muestra <- 4215
+seed_tiempos <- 79
 ```
 
 
 Sin corrección:
 
 ```{r, message=FALSE, warning=FALSE}
-prop_observadas <- c(0.025, 0.05, 0.25, 0.5, 0.6, 0.7, 0.8, 0.95, 0.99) 
+prop_observadas <- c(0.01, 0.025, 0.05, 0.25, 0.5, 0.6, 0.7, 0.8, 0.95, 0.99)
+```
+
+
+```{r, message=FALSE, warning=FALSE}
 ajustes_tiempo <- map(prop_observadas, function(prop){
   muestra_1 <- obtener_muestra_marco(datos_ent, frac = frac, 
                                      prop_obs = prop, seed = seed_muestra, 
@@ -67,10 +71,11 @@ ajustes_tiempo <- map(prop_observadas, function(prop){
   muestra_1$y <- muestra_1[["votos"]] %>% 
   as.matrix()
   muestra_1$p <- length(partidos)
+  print(prop)
   print(dim(muestra_1$y))
   datos_1 <- c(parametros, muestra_1, sim_datos)
   datos_1$f_bias <- 10000
-  datos_1$p_obs <- prop
+  datos_1$p_obs <- 0.99
   ajuste <- md$sample(data = datos_1, 
                           seed = 21211,
                           iter_sampling = 1500, iter_warmup = 1000,
@@ -108,13 +113,13 @@ g_1 <- ggplot(resumen_tiempos_tbl, aes(x = prop_obs, y = mediana,
                                 colour = partidos, fill = partidos)) +
   geom_hline(aes(yintercept = prop_real)) +
   geom_line() + geom_point() +
-  geom_ribbon(alpha =0.5, size = 0) 
+  geom_ribbon(alpha =0.5, size = 0) +
+  labs(subtitle = "Sin corrección por sesgo")
 ```
 
 
 
 ```{r, message=FALSE, warning=FALSE}
-prop_observadas <- c(0.05, 0.25, 0.6, 0.7, 0.8, 0.95, 0.99) 
 ajustes_tiempo <- map(prop_observadas, function(prop){
   muestra_1 <- obtener_muestra_marco(datos_ent, frac = frac, 
                                      prop_obs = prop, seed = seed_muestra, 
@@ -128,15 +133,15 @@ ajustes_tiempo <- map(prop_observadas, function(prop){
   muestra_1$p <- length(partidos)
   print(dim(muestra_1$y))
   datos_1 <- c(parametros, muestra_1, sim_datos)
-  datos_1$f_bias <- 8
+  datos_1$f_bias <- 10
   datos_1$p_obs <- prop
   ajuste <- md$sample(data = datos_1, 
-                          seed = 21211,
+                          seed = 212131,
                           iter_sampling = 1500, iter_warmup = 1000,
                           refresh = 0, 
                           chains = 5, 
-                          adapt_delta = 0.95,
-                          max_treedepth = 10,
+                          adapt_delta = 0.97,
+                          max_treedepth = 12,
                           parallel_chains = 5, 
                           show_messages = FALSE)
   salida_tbl <- ajuste$draws("y_out") %>% as_draws_df() %>% 
@@ -167,10 +172,11 @@ g_2 <- ggplot(resumen_tiempos_tbl, aes(x = prop_obs, y = mediana,
                                 colour = partidos, fill = partidos)) +
   geom_hline(aes(yintercept = prop_real)) +
   geom_line() + geom_point() +
-  geom_ribbon(alpha =0.5, size = 0) 
+  geom_ribbon(alpha =0.5, size = 0) +
+  labs(subtitle = "Con corrección por sesgo")
 ```
 
-```{r}
+```{r, fig.height=10}
 g_1 / g_2
 ```
 
