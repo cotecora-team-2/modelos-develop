@@ -91,8 +91,8 @@ generated quantities {
       if(in_sample[i] == 1){
         y_out[k] += y_f[i,k];
       } else {
-        pred_f = dot_product(x_f[i,], beta[,k] + w_bias);
-        theta_f = inv_logit(beta_st[stratum_f[i],k] + pred_f);
+        pred_f = dot_product(x_f[i,], beta[,k]);
+        theta_f = inv_logit(beta_st[stratum_f[i],k] + pred_f + w_bias);
         alpha_bn_f =  n_f[i] * theta_f;
         y_out[k] += neg_binomial_2_rng(alpha_bn_f , alpha_bn_f/kappa[stratum_f[i],k]);
       }
