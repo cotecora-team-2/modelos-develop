@@ -112,4 +112,58 @@ Y el modelo para hacer simulaciones a partir de las iniciales:
 cat stan/simular_ensemble_modelo.stan
 ```
 
+## Proceso de estimación
 
+Una vez que obtenemos simulaciones posteriores de los parámetros, usamos estos
+para simular la posterior de **todas las casillas** del marco muestral. Es decir, 
+simulamos el total de votos
+
+$$\sum_{i\in S} y_i + \sum_{i\notin S} y_j$$
+donde el primer término es conocido y son los valores observados de las casillas
+en muestra, y el otro se simula condicional a la posterior de los parámetros explicados arriba,
+que incluyen variables a nivel casilla, sección y estrato.
+
+
+### Muestras incompletas
+
+En todos los conteos rápidos que se han llevado a cabo, federales y estatales,
+una proporción considerable de las casillas (de 10% a 50%) está censurada por el tiempo. Esto 
+implica que los parámetros estimados tendran sesgo con respecto a los poblacionales,
+como ha sido estudiado por ejemplo en 
+[este análisis para las elecciones de 2018](https://sim-llegadas-3e5e7b.netlify.app/). 
+Consideramos entonces en la etapa de simulación que los valores $\theta_i$ 
+(proporción de votos obtenida en cada casilla sobre la lista nominal) pueden estar sesgados.
+Recordamos que tenemos:
+
+$$y_{i} \sim \textrm{NegBin} \left( \mu_i, \phi_i \right)$$
+
+donde $\mu_i = n_i \theta_i$, y 
+
+$$\theta_i = h(\beta_0 + \beta_{st} + x_i^t\beta),$$
+donde $h$ es la función logit inversa. Proponemos entonces hacer la simulación tomando
+en su lugar
+$$\theta'_i = h(\beta_0 + \beta_{st} + x_i^t\beta + w)$$
+donde $w\sim N(0, s)$. 
+
+El valor $s$ se fija de acuerdo al sesgo que hemos observado en 
+elecciones pasadas en estas proporciones $\theta_i$ cuando existen muestras incompletas, considerando
+que (aproximando a primer orden):
+$$\theta'_i - \theta_i \approx \theta_i(1-\theta_i) w.$$
+Fijando entonces $\theta_i$ obtenemos que 2 desviaciones estándar de esta cantidad son
+aproximadamente
+
+$$2 \theta_i(1-\theta_i) s$$
+En [este análisis de 2018](https://sim-llegadas-3e5e7b.netlify.app/) encontramos que el
+sesgo observado sobre varios estados para estimar la proporción de
+votos $\theta$ de un candidato, cuando se ha observado solamente $p_{obs}$ de la muestra,
+está en su mayor parte acotada por arriba por
+$$\frac{\theta(1-\theta)(1-p_{obs})}{5}$$
+De forma que igualando con la cantidad de arriba, obtenemos
+$$s = \frac{1 - p_{obs}}{10}.$$
+
+La implementación se puede ver en el bloque de cantidades generadas aquí:
+
+
+```{bash}
+cat stan/modelo_conjunto.stan
+```
