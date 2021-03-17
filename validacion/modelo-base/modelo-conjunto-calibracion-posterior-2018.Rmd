@@ -9,7 +9,7 @@ params:
   frac:
     value: 0.15
   adapt_delta:
-    value: 0.97
+    value: 0.9
   simular:
     value: TRUE
   n_reps:
@@ -68,17 +68,17 @@ md <- cmdstan_model(ruta)
 
 
 ```{r, message=FALSE, warning=FALSE}
-datos_1$f_bias <- 2.5
+datos_1$f_bias <- 10
 datos_1$p_obs <- params$prop_observado
 ajuste <- md$sample(data = datos_1, 
                           seed = 21211,
-                          iter_sampling = 1500, iter_warmup = 1000,
+                          iter_sampling = 500, iter_warmup = 1000,
                           refresh = 250, 
-                          chains = 5, 
+                          chains = 8, 
                           init = 2,
                           adapt_delta = params$adapt_delta,
-                          max_treedepth = 12,
-                          parallel_chains = 5, 
+                          max_treedepth = 10,
+                          parallel_chains = 8, 
                           show_messages = TRUE)
 ```
 
@@ -117,7 +117,7 @@ if(params$simular){
   muestra_1$p <- ncol(muestra_1$y)
   datos_1 <- c(parametros, muestra_1, sim_datos)
   # sesgo
-  datos_1$f_bias <- 2.5
+  datos_1$f_bias <- 10
   datos_1$p_obs <- params$prop_observado
   # 
   total <- apply(datos_1$y_f, 2 , sum)
@@ -127,11 +127,11 @@ if(params$simular){
                           seed = 21312,
                           iter_sampling = 1500, iter_warmup = 1000,
                           refresh = 0, 
-                          chains = 5,
+                          chains = 8,
                           init = 2, 
                           adapt_delta = params$adapt_delta,
-                          max_treedepth = 12,
-                          parallel_chains = 5,
+                          max_treedepth = 10,
+                          parallel_chains = 8,
                           show_messages = FALSE)
   y_out_df <- ajuste$draws(c("prop_votos", "y_out")) %>% 
     as_draws_df() %>% as_tibble()
