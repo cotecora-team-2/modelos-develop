@@ -73,18 +73,8 @@ generated quantities {
   real pred_f;
   real total;
   real w_bias;
-  //vector[p] w_bias;
-  //vector[p] zeros;
-  //cholesky_factor_corr[p] corr;
-  //vector[p] sd_w;
 
-  //for(k in 1:p){
-  //  zeros[k] = 0;
-  //  sd_w[k] = (1-p_obs)/f_bias;
-  //}
-  //corr = lkj_corr_cholesky_rng(p, 1);
-  //w_bias = multi_normal_cholesky_rng(zeros, diag_pre_multiply(sd_w, corr));
-  for(k in 1:p){
+ for(k in 1:p){
     w_bias = normal_rng(0, (1 - p_obs) / f_bias);
     y_out[k] = 0;
     for(i in 1:N_f){
