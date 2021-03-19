@@ -24,7 +24,10 @@ obtener_muestra_marco <- function(marco_tbl, frac = 0.04, seed = NA,
     }
     muestra_1 <- muestra_1 %>% left_join(sims_llegadas %>% filter(id == id_selec),
                              by = c("CLAVE_CASILLA", "state_abbr"))
-    muestra_1 <- filter(muestra_1, prop_observado <= prop_obs)
+    muestra_1 <- muestra_1 %>%
+      ungroup %>%
+      mutate(prop_obs_muestra = percent_rank(time))
+    muestra_1 <- filter(muestra_1, prop_obs_muestra <= prop_obs)
   }
   in_sample_na <- marco_tbl %>% select(no_casilla) %>%
     left_join(muestra_1 %>% select(no_casilla, estrato_df),
