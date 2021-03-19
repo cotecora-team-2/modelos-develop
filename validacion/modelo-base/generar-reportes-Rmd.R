@@ -21,7 +21,7 @@ if(FALSE){
 params <- tibble(estado = c("NAYARIT", "CHIHUAHUA", "COLIMA", "ZACATECAS"),
                  frac = c(0.12, 0.06, 0.15, 0.15),
                  adapt_delta = c(0.95, 0.95, 0.95, 0.95),
-                 simular = TRUE)
+                 simular = FALSE)
 
 render_reporte <- function(estado, frac, adapt_delta, simular, rmd_file) {
   print(estado)
@@ -39,6 +39,9 @@ render_reporte <- function(estado, frac, adapt_delta, simular, rmd_file) {
 }
 
 safely_render <- purrr::safely(render_reporte)
+
+# Generar descripción del modelo
+rmarkdown::render("modelo-base-construccion.Rmd")
 
 # Generar checks de inicial
 pwalk(params, safely_render,
