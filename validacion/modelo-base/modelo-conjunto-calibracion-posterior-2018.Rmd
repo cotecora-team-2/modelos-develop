@@ -11,11 +11,11 @@ params:
   adapt_delta:
     value: 0.9
   simular:
-    value: TRUE
+    value: FALSE
   n_reps:
     value: 5
   prop_observado:
-    value: 0.99
+    value: 0.6
 ---
 
 # `r params$estado`
@@ -49,7 +49,11 @@ Obtener una muestra
 
 ```{r}
 source("R/funciones_calibracion.R", local = knitr::knit_global())
-muestra_1 <- obtener_muestra_marco(datos_ent, frac = params$frac, seed = 1978,  partidos = partidos)
+muestra_1 <- obtener_muestra_marco(datos_ent, frac = params$frac, 
+                                   seed = 1912378,  partidos = partidos,
+                                   sims_llegadas = sims_llegadas, 
+                                   prop_obs = params$prop_observado,
+                                   id_selec = 15)
 sim_datos$y_f <- datos_ent %>% select(any_of(partidos)) %>% 
   as.matrix()
 muestra_1$y <- muestra_1[["votos"]] %>% 
@@ -67,24 +71,24 @@ md <- cmdstan_model(ruta)
 ```
 
 
-```{r, message=FALSE, warning=FALSE}
+```{r}
 datos_1$f_bias <- 10
 datos_1$p_obs <- params$prop_observado
 ajuste <- md$sample(data = datos_1, 
-                          seed = 21211,
+                          seed = 211,
                           iter_sampling = 500, iter_warmup = 1000,
                           refresh = 250, 
                           chains = 8, 
-                          init = 2,
+                          init = 0.1,
                           adapt_delta = params$adapt_delta,
-                          max_treedepth = 10,
+                          max_treedepth = 12,
                           parallel_chains = 8, 
                           show_messages = TRUE)
 ```
 
 
 ```{r, message=FALSE, warning=FALSE}
-ajuste$summary(variables = c("prop_votos", "beta_0", "beta", "kappa"))
+ajuste$summary(variables = c("prop_votos", "sigma", "beta_0", "beta", "kappa"))
 total
 ajuste$cmdstan_diagnose()
 ```
@@ -100,8 +104,7 @@ ajuste_df <- left_join(ajuste_df, partidos_df)
 ggplot(ajuste_df, aes(x = value)) + 
   facet_wrap(~ partidos, scales = "free_x") +
   geom_histogram() +
-  geom_vline(aes(xintercept = prop)) +
-  scale_y_sqrt()
+  geom_vline(aes(xintercept = prop)) 
 ```
 
 ## Verificación posterior para porcentaje de votos
@@ -111,7 +114,8 @@ set.seed(8342)
 if(params$simular){
   ajuste_muestras <- map(1:params$n_reps, function(rep){
   muestra_1 <- obtener_muestra_marco(datos_ent, frac = params$frac,
-                    partidos = partidos)
+                    partidos = partidos, sims_llegadas = sims_llegadas, 
+                    prop_obs = params$prop_observado)
   sim_datos$y_f <- datos_ent %>% select(all_of(partidos)) %>% as.matrix()
   muestra_1$y <- muestra_1[["votos"]] %>% as.matrix() 
   muestra_1$p <- ncol(muestra_1$y)
@@ -128,7 +132,7 @@ if(params$simular){
                           iter_sampling = 1500, iter_warmup = 1000,
                           refresh = 0, 
                           chains = 8,
-                          init = 2, 
+                          init = 0.5, 
                           adapt_delta = params$adapt_delta,
                           max_treedepth = 10,
                           parallel_chains = 8,

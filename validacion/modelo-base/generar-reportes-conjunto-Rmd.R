@@ -20,9 +20,9 @@ if(FALSE){
 ## parámetros de reportes
 params <- tibble(estado = c("NAYARIT", "CHIHUAHUA", "COLIMA", "ZACATECAS"),
                  frac = c(0.15, 0.07, 0.20, 0.20),
-                 adapt_delta = c(0.9, 0.9, 0.97, 0.97),
-                 simular = TRUE, n_reps = 50,
-                 prop_observado = 0.99)
+                 adapt_delta = c(0.98, 0.98, 0.98, 0.98),
+                 simular = TRUE, n_reps = 200,
+                 prop_observado = 0.8)
 
 #params <- filter(params, estado %in% c("COLIMA", "ZACATECAS"))
 
