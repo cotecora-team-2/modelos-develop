@@ -252,7 +252,7 @@ ajustes_tiempo <- map(prop_observadas, function(prop){
 
 
 
-```{r, echo=FALSE}
+```{r, echo=FALSE, message=FALSE}
 ajustes_tiempos_tbl <- bind_rows(ajustes_tiempo) %>%
   pivot_longer(cols = starts_with("y_out"), names_to = "variable",
                values_to = "y_out") %>% 
@@ -312,7 +312,7 @@ ajustes_tiempo <- map(prop_observadas, function(prop){
 
 
 
-```{r, echo=FALSE}
+```{r, echo=FALSE, message=FALSE}
 ajustes_tiempos_tbl <- bind_rows(ajustes_tiempo) %>%
   pivot_longer(cols = starts_with("y_out"), names_to = "variable",
                values_to = "y_out") %>% 
@@ -333,11 +333,58 @@ g_2 <- ggplot(resumen_tiempos_tbl, aes(x = prop_obs, y = mediana,
   geom_hline(aes(yintercept = prop_real)) +
   geom_line() + geom_point() +
   geom_ribbon(alpha =0.5, size = 0) +
-  labs(subtitle = "Con corrección por sesgo (Chihuahua)")
+  labs(subtitle = "Con corrección por sesgo (Chihuahua), 1/10")
 ```
 
 ```{r, echo=FALSE, fig.height=10}
 g_1 / g_2
 ```
 
+## Apéndice
 
+Con un ajuste más grande de $s=(1-p_{obs})/7$, por ejemplo, obtenemos 
+
+```{r, message=FALSE, echo=FALSE}
+archivos_con_ajuste_7 <- list.files(path = "resumenes/estados_presentacion_fbias7/", pattern = "*.csv", full.names = TRUE)
+con_ajuste_tbl <- map_df(archivos_con_ajuste, function(archivo){
+  datos <- read_csv(archivo)
+  datos
+}) %>% filter(partidos!="CAND_IND_01") %>% 
+  mutate(tipo = "con ajuste")
+resumen_con <- con_ajuste_tbl %>% 
+  mutate(cubre = ifelse(sup >= prop & inf <= prop, 1, 0)) %>% 
+  group_by(estado, tipo, prop_obs, partidos) %>% 
+  summarise(precision = mean((sup - inf)/2),
+            cobertura = mean(cubre), error = 2 * sd(cubre)/sqrt(n())) 
+```
+
+
+```{r, echo=FALSE}
+resumen <- bind_rows(resumen_con, resumen_sin)
+```
+
+
+
+```{r, echo=FALSE}
+ggplot(resumen, aes(x = prop_obs, y = cobertura, ymin = cobertura - error,
+                    ymax = cobertura + error, colour = partidos)) +
+  geom_point() +
+  geom_line() +
+  geom_linerange() +
+  facet_grid(estado ~ tipo) +
+  ylab("Cobertura") + 
+  xlab("Proporción de muestra observada (censura no aleatoria)")
+```
+
+```{r, echo=FALSE}
+ggplot(resumen %>% 
+         select(estado, prop_obs, partidos, tipo, precision) %>% 
+         pivot_wider(names_from = tipo, values_from = precision) %>% 
+         mutate(incremento_prec = `con ajuste` / `sin ajuste` - 1),
+  aes(x = prop_obs, y = 100*incremento_prec, colour = partidos)) +
+  geom_point() +
+  geom_line() +
+  facet_wrap(~ estado) +
+  xlab("Proporción de muestra observada (censura no aleatoria)") +
+  ylab("Incremento porcentual de precisión")
+```
