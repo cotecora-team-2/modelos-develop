@@ -21,7 +21,7 @@ de porcentaje de votos para candidatos bajo muestras censuradas por el tiempo.
 
 Como discutimos en [presentaciones anteriores](https://sim-llegadas-3e5e7b.netlify.app/), la muestras censuradas por el tiempo típicamente no pueden considerarse como submuestras aleatorias de la muestra diseñada y
 presentan sesgos potenciales en la estimaciones que resultan en intervalos
-que pueden estar la cumplir la cobertura nominal de 95%.
+que pueden estar lejos de cumplir la cobertura nominal de 95%.
 
 
 
@@ -106,33 +106,34 @@ ggplot(resumen %>%
   ylab("Incremento porcentual de precisión")
 ```
 
-Las coberturas resumidas con ajuste son:
+Las coberturas resumidas con y sin ajuste son (cobertura media
+y precisión máxima):
 
 ```{r, echo=FALSE}
-resumen %>% 
+tabla_con <- resumen %>% 
   filter(tipo == "con ajuste") %>%
   filter(prop_obs %in% c(0.6, 0.9)) %>% 
   filter(partidos %in% c("AMLO", "JAMK", "RAC")) %>% 
   group_by(prop_obs, estado) %>% 
-  summarise(precision_max = round(100*max(precision),1), 
-            cobertura_media = round(mean(cobertura),2),
-    .groups = "drop") %>% 
-  knitr::kable()
+  summarise(precision_corregida = round(100*max(precision),1), 
+            cobertura_corregida = round(mean(cobertura),2),
+    .groups = "drop") 
+tabla_sin <- resumen %>% 
+  filter(tipo == "sin ajuste") %>%
+  filter(prop_obs %in% c(0.6, 0.9)) %>% 
+  group_by(prop_obs, estado) %>% 
+    filter(partidos %in% c("AMLO", "JAMK", "RAC")) %>% 
+  summarise(precision = round(100*max(precision),1), 
+            cobertura = round(mean(cobertura),2),
+    .groups = "drop")
+tabla <- left_join(tabla_con, tabla_sin)
 ```
 
 Lo que representa una mejoría considerable a lo largo de las estimaciones de todos los estados, pues las coberturas resumidas sin ajuste son:
 
 
 ```{r, echo = FALSE}
-resumen %>% 
-  filter(tipo == "sin ajuste") %>%
-  filter(prop_obs %in% c(0.6, 0.9)) %>% 
-  group_by(prop_obs, estado) %>% 
-    filter(partidos %in% c("AMLO", "JAMK", "RAC")) %>% 
-  summarise(precision_max = round(100*max(precision),1), 
-            cobertura_media = round(mean(cobertura),2),
-    .groups = "drop") %>% 
-  knitr::kable()
+tabla %>% knitr::kable()
 ```
 
 
@@ -289,7 +290,8 @@ g_1 <- ggplot(resumen_tiempos_tbl, aes(x = prop_obs, y = mediana,
   geom_hline(aes(yintercept = prop_real)) +
   geom_line() + geom_point() +
   geom_ribbon(alpha =0.5, size = 0) +
-  labs(subtitle = "Sin corrección por sesgo (Chihuahua)")
+  labs(subtitle = "Sin corrección por sesgo (Chihuahua)") +
+  ylab("Proporción")
 ```
 
 
@@ -349,7 +351,8 @@ g_2 <- ggplot(resumen_tiempos_tbl, aes(x = prop_obs, y = mediana,
   geom_hline(aes(yintercept = prop_real)) +
   geom_line() + geom_point() +
   geom_ribbon(alpha =0.5, size = 0) +
-  labs(subtitle = "Con corrección por sesgo (Chihuahua), 1/10")
+  labs(subtitle = "Con corrección por sesgo (Chihuahua), 1/10") +
+  ylab("")
 ```
 
 ```{r, echo=FALSE, fig.height=6}
@@ -403,4 +406,34 @@ ggplot(resumen %>%
   facet_wrap(~ estado) +
   xlab("Proporción de muestra observada (censura no aleatoria)") +
   ylab("Incremento porcentual de precisión")
+```
+
+Las coberturas resumidas con y sin ajuste son (cobertura media
+y precisión máxima):
+
+```{r, echo=FALSE}
+tabla_con <- resumen %>% 
+  filter(tipo == "con ajuste") %>%
+  filter(prop_obs %in% c(0.6, 0.9)) %>% 
+  filter(partidos %in% c("AMLO", "JAMK", "RAC")) %>% 
+  group_by(prop_obs, estado) %>% 
+  summarise(precision_corregida = round(100*max(precision),1), 
+            cobertura_corregida = round(mean(cobertura),2),
+    .groups = "drop") 
+tabla_sin <- resumen %>% 
+  filter(tipo == "sin ajuste") %>%
+  filter(prop_obs %in% c(0.6, 0.9)) %>% 
+  group_by(prop_obs, estado) %>% 
+    filter(partidos %in% c("AMLO", "JAMK", "RAC")) %>% 
+  summarise(precision = round(100*max(precision),1), 
+            cobertura = round(mean(cobertura),2),
+    .groups = "drop")
+tabla <- left_join(tabla_con, tabla_sin)
+```
+
+Lo que representa una mejoría considerable a lo largo de las estimaciones de todos los estados, pues las coberturas resumidas sin ajuste son:
+
+
+```{r, echo = FALSE}
+tabla %>% knitr::kable()
 ```
