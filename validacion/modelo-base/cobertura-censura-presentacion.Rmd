@@ -211,7 +211,7 @@ prop_observadas <- c(0.025, 0.05, 0.25, 0.5, 0.6, 0.7, 0.8, 0.95, 0.99)
 ```
 
 
-```{r sin ajuste, message=FALSE, warning=FALSE, echo=FALSE}
+```{r sin ajuste, message=FALSE, warning=FALSE, echo=FALSE, cache=TRUE}
 ajustes_tiempo <- map(prop_observadas, function(prop){
   muestra_1 <- obtener_muestra_marco(datos_ent, frac = frac, 
                                      prop_obs = prop, seed = seed_muestra, 
@@ -272,7 +272,7 @@ g_1 <- ggplot(resumen_tiempos_tbl, aes(x = prop_obs, y = mediana,
 
 
 
-```{r conajuste, message=FALSE, warning=FALSE,  echo=FALSE}
+```{r conajuste, message=FALSE, warning=FALSE,  echo=FALSE, cache=TRUE}
 ajustes_tiempo <- map(prop_observadas, function(prop){
   muestra_1 <- obtener_muestra_marco(datos_ent, frac = frac, 
                                      prop_obs = prop, seed = seed_muestra, 
