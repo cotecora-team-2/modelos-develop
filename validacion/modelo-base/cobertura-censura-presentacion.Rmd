@@ -16,12 +16,12 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Introducción
 
-En [este documento](https://sim-llegadas-3e5e7b.netlify.app/) describimos el tamaño y patrón de sesgo producido por muestras censuradas en la eleción presidencial de 2018, considerando solo los estados
-con elección de gobernador en 2012. En este documento se muestra (con un análisis exploratorio basado en simulaciones de tiempos de llegada y censura de acuerdo a esos tiempos) que
-el sesgo cuando hemos observado una proporción $p_obs$ de la muestra completa, cuando 
+En [este documento](https://sim-llegadas-3e5e7b.netlify.app/) describimos el tamaño y patrón de sesgo producido por muestras censuradas en la elección presidencial de 2018, considerando sólo los estados
+con elección de gobernador en 2021. En este documento se muestra (con un análisis exploratorio basado en simulaciones de tiempos de llegada y censura de acuerdo a esos tiempos) que
+el sesgo cuando hemos observado una proporción $p_{obs}$ de la muestra completa, cuando 
 buscamos estimar una proporción  $\theta$, es proporcional a
 $$\theta(1-\theta)(1-p_{obs})$$
-Aunque la constante de proporcionalidad varía de estado a estados, encontramos que en los peores casos la constante es de alrededor de
+Aunque la constante de proporcionalidad varía de estado a estado, encontramos que en los peores casos la constante es de alrededor de
 $\alpha = 1/5$
 
 ## Primeros resultados
@@ -119,7 +119,7 @@ $$2 \theta_i(1-\theta_i) s$$
 
 De forma que igualando con la cantidad de arriba, obtenemos
 $$s = \frac{1 - p_{obs}}{10}.$$
-Dada la naturaleza aproximada de este análisis, podemos decidir la constante de proporcionalidad con datos de de elcciones anteriores, en lguar de usar los argumentos que acabamos de mostrar.
+Dada la naturaleza aproximada de este análisis, podemos decidir la constante de proporcionalidad con datos de de elecciones anteriores, en lugar de usar los argumentos que acabamos de mostrar.
 
 
 
@@ -128,7 +128,7 @@ Dada la naturaleza aproximada de este análisis, podemos decidir la constante de
 ## Precisión
 
 
-El incremento en tamaño de los intervalos producidos al introducir la corrección se muestra en la siguiente gráficas:
+El incremento en tamaño de los intervalos producidos al introducir la corrección se muestra en la siguiente gráfica:
 
 ```{r, echo=FALSE}
 ggplot(resumen %>% 
