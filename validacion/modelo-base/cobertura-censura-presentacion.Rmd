@@ -16,13 +16,16 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Introducción
 
-En [este documento](https://sim-llegadas-3e5e7b.netlify.app/) describimos el tamaño y patrón de sesgo producido por muestras censuradas en la elección presidencial de 2018, considerando sólo los estados
-con elección de gobernador en 2021. En este documento se muestra (con un análisis exploratorio basado en simulaciones de tiempos de llegada y censura de acuerdo a esos tiempos) que
-el sesgo cuando hemos observado una proporción $p_{obs}$ de la muestra completa, cuando 
-buscamos estimar una proporción  $\theta$, es proporcional a
-$$\theta(1-\theta)(1-p_{obs})$$
-Aunque la constante de proporcionalidad varía de estado a estado, encontramos que en los peores casos la constante es de alrededor de
-$\alpha = 1/5$
+En este documento describimos los resultados de un ajuste propuesta para la estimación
+de porcentaje de votos para candidatos bajo muestras censuradas por el tiempo. 
+
+Como discutimos en [presentaciones anteriores](https://sim-llegadas-3e5e7b.netlify.app/), la muestras censuradas por el tiempo típicamente no pueden considerarse como submuestras aleatorias de la muestra diseñada y
+presentan sesgos potenciales en la estimaciones que resultan en intervalos
+que pueden estar la cumplir la cobertura nominal de 95%.
+
+
+
+
 
 ## Primeros resultados de cobertura
 
@@ -131,6 +134,19 @@ resumen %>%
     .groups = "drop") %>% 
   knitr::kable()
 ```
+
+
+## Sesgo absoluto 2018
+
+En [este documento](https://sim-llegadas-3e5e7b.netlify.app/) describimos el tamaño y patrón de sesgo producido por muestras censuradas en la elección presidencial de 2018, considerando sólo los estados
+con elección de gobernador en 2021. 
+
+En este documento se muestra (con un análisis exploratorio basado en simulaciones de tiempos de llegada y censura de acuerdo a esos tiempos) que
+el sesgo cuando hemos observado una proporción $p_{obs}$ de la muestra completa, cuando 
+buscamos estimar una proporción  $\theta$, es proporcional a
+$$\theta(1-\theta)(1-p_{obs})$$
+Aunque la constante de proporcionalidad varía de estado a estado, encontramos que en los peores casos la constante es de alrededor de
+$\alpha = 1/5$
 
 
 ## Ajuste por sesgo 

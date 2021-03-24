@@ -194,7 +194,8 @@ summary {
 
 <div id="introducción" class="section level2">
 <h2>Introducción</h2>
-<p>En <a href="https://sim-llegadas-3e5e7b.netlify.app/">este documento</a> describimos el tamaño y patrón de sesgo producido por muestras censuradas en la elección presidencial de 2018, considerando sólo los estados con elección de gobernador en 2021. En este documento se muestra (con un análisis exploratorio basado en simulaciones de tiempos de llegada y censura de acuerdo a esos tiempos) que el sesgo cuando hemos observado una proporción <span class="math inline">\(p_{obs}\)</span> de la muestra completa, cuando buscamos estimar una proporción <span class="math inline">\(\theta\)</span>, es proporcional a <span class="math display">\[\theta(1-\theta)(1-p_{obs})\]</span> Aunque la constante de proporcionalidad varía de estado a estado, encontramos que en los peores casos la constante es de alrededor de <span class="math inline">\(\alpha = 1/5\)</span></p>
+<p>En este documento describimos los resultados de un ajuste propuesta para la estimación de porcentaje de votos para candidatos bajo muestras censuradas por el tiempo.</p>
+<p>Como discutimos en <a href="https://sim-llegadas-3e5e7b.netlify.app/">presentaciones anteriores</a>, la muestras censuradas por el tiempo típicamente no pueden considerarse como submuestras aleatorias de la muestra diseñada y presentan sesgos potenciales en la estimaciones que resultan en intervalos que pueden estar la cumplir la cobertura nominal de 95%.</p>
 </div>
 <div id="primeros-resultados-de-cobertura" class="section level2">
 <h2>Primeros resultados de cobertura</h2>
@@ -328,6 +329,11 @@ summary {
 </tr>
 </tbody>
 </table>
+</div>
+<div id="sesgo-absoluto-2018" class="section level2">
+<h2>Sesgo absoluto 2018</h2>
+<p>En <a href="https://sim-llegadas-3e5e7b.netlify.app/">este documento</a> describimos el tamaño y patrón de sesgo producido por muestras censuradas en la elección presidencial de 2018, considerando sólo los estados con elección de gobernador en 2021.</p>
+<p>En este documento se muestra (con un análisis exploratorio basado en simulaciones de tiempos de llegada y censura de acuerdo a esos tiempos) que el sesgo cuando hemos observado una proporción <span class="math inline">\(p_{obs}\)</span> de la muestra completa, cuando buscamos estimar una proporción <span class="math inline">\(\theta\)</span>, es proporcional a <span class="math display">\[\theta(1-\theta)(1-p_{obs})\]</span> Aunque la constante de proporcionalidad varía de estado a estado, encontramos que en los peores casos la constante es de alrededor de <span class="math inline">\(\alpha = 1/5\)</span></p>
 </div>
 <div id="ajuste-por-sesgo" class="section level2">
 <h2>Ajuste por sesgo</h2>
