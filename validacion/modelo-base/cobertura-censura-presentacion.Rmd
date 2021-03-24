@@ -336,8 +336,8 @@ g_2 <- ggplot(resumen_tiempos_tbl, aes(x = prop_obs, y = mediana,
   labs(subtitle = "Con corrección por sesgo (Chihuahua), 1/10")
 ```
 
-```{r, echo=FALSE, fig.height=10}
-g_1 / g_2
+```{r, echo=FALSE, fig.height=6}
+g_1 + g_2 +  plot_layout(guides = 'collect')  & theme(legend.position = 'bottom')
 ```
 
 ## Apéndice
@@ -346,7 +346,7 @@ Con un ajuste más grande de $s=(1-p_{obs})/7$, por ejemplo, obtenemos
 
 ```{r, message=FALSE, echo=FALSE}
 archivos_con_ajuste_7 <- list.files(path = "resumenes/estados_presentacion_fbias7/", pattern = "*.csv", full.names = TRUE)
-con_ajuste_tbl <- map_df(archivos_con_ajuste, function(archivo){
+con_ajuste_tbl <- map_df(archivos_con_ajuste_7, function(archivo){
   datos <- read_csv(archivo)
   datos
 }) %>% filter(partidos!="CAND_IND_01") %>% 
