@@ -24,6 +24,70 @@ $$\theta(1-\theta)(1-p_{obs})$$
 Aunque la constante de proporcionalidad varía de estado a estados, encontramos que en los peores casos la constante es de alrededor de
 $\alpha = 1/5$
 
+## Primeros resultados
+
+En este ejemplo usaremos 1/10 como constante de proporcionalidad. Los datos de cobertura con y sin ajuste de sesgo (usando 100 muestras) se muestran
+a continuación:
+
+
+```{r, message=FALSE, echo=FALSE}
+archivos_sin_ajuste <- list.files(path = "resumenes/estados_presentacion_sinfbias/", pattern = "*.csv", full.names = TRUE)
+sin_ajuste_tbl <- map_df(archivos_sin_ajuste, function(archivo){
+  datos <- read_csv(archivo)
+  datos
+}) %>% filter(partidos!="CAND_IND_01") %>% 
+  mutate(tipo = "sin ajuste")
+resumen_sin <- sin_ajuste_tbl %>% 
+  mutate(cubre = ifelse(sup >= prop & inf <= prop, 1, 0)) %>% 
+  group_by(estado, tipo, prop_obs, partidos) %>% 
+  summarise(precision = mean((sup - inf)/2),
+            cobertura = mean(cubre), error = 2 * sd(cubre)/sqrt(n())) 
+```
+
+Número de muestras: `r max(sin_ajuste_tbl$rep)`
+
+
+```{r, message=FALSE, echo=FALSE}
+archivos_con_ajuste <- list.files(path = "resumenes/estados_presentacion_fbias10/", pattern = "*.csv", full.names = TRUE)
+con_ajuste_tbl <- map_df(archivos_con_ajuste, function(archivo){
+  datos <- read_csv(archivo)
+  datos
+}) %>% filter(partidos!="CAND_IND_01") %>% 
+  mutate(tipo = "con ajuste")
+resumen_con <- con_ajuste_tbl %>% 
+  mutate(cubre = ifelse(sup >= prop & inf <= prop, 1, 0)) %>% 
+  group_by(estado, tipo, prop_obs, partidos) %>% 
+  summarise(precision = mean((sup - inf)/2),
+            cobertura = mean(cubre), error = 2 * sd(cubre)/sqrt(n())) 
+```
+
+```{r, echo=FALSE}
+### Esto no importa mucho, pero corregir para poner datos de corrida!!
+#resumen_sin <- resumen_sin %>% 
+#  bind_rows(resumen_con %>% filter(estado=="ZACATECAS", prop_obs == 0.9)) %>% 
+#  mutate(tipo = "sin ajuste")
+```
+
+```{r, echo=FALSE}
+resumen <- bind_rows(resumen_con, resumen_sin)
+```
+
+
+
+```{r, echo=FALSE}
+ggplot(resumen, aes(x = prop_obs, y = cobertura, ymin = cobertura - error,
+                    ymax = cobertura + error, colour = partidos)) +
+  geom_point() +
+  geom_line() +
+  geom_linerange() +
+  facet_grid(estado ~ tipo) +
+  ylab("Cobertura") + 
+  xlab("Proporción de muestra observada (censura no aleatoria)")
+```
+
+
+
+
 ## Ajuste por sesgo 
 
 En nuestro modelo bayesiano para la estimación del porcentaje de votos de cada candidato, modelamos los votos para un candidato en la casilla $i$ como
@@ -61,66 +125,8 @@ Dada la naturaleza aproximada de este análisis, podemos decidir la constante de
 
 
 
-## Resultados
+## Precisión
 
-En este ejemplo usaremos 1/10 como constante de proporcionalidad. Los datos de cobertura con y sin ajuste de sesgo (usando 100 muestras) se muestran
-a continuación:
-
-
-```{r, message=FALSE, echo=FALSE}
-archivos_sin_ajuste <- list.files(path = "resumenes/estados_presentacion_sinfbias/", pattern = "*.csv", full.names = TRUE)
-sin_ajuste_tbl <- map_df(archivos_sin_ajuste, function(archivo){
-  datos <- read_csv(archivo)
-  datos
-}) %>% filter(partidos!="CAND_IND_01") %>% 
-  mutate(tipo = "sin ajuste")
-resumen_sin <- sin_ajuste_tbl %>% 
-  mutate(cubre = ifelse(sup >= prop & inf <= prop, 1, 0)) %>% 
-  group_by(estado, tipo, prop_obs, partidos) %>% 
-  summarise(precision = mean((sup - inf)/2),
-            cobertura = mean(cubre), error = 2 * sd(cubre)/sqrt(n())) 
-```
-
-Número de muestras: `r max(sin_ajuste_tbl$rep)`
-
-
-```{r, message=FALSE, echo=FALSE}
-archivos_con_ajuste <- list.files(path = "resumenes/estados_presentacion_fbias7/", pattern = "*.csv", full.names = TRUE)
-con_ajuste_tbl <- map_df(archivos_con_ajuste, function(archivo){
-  datos <- read_csv(archivo)
-  datos
-}) %>% filter(partidos!="CAND_IND_01") %>% 
-  mutate(tipo = "con ajuste")
-resumen_con <- con_ajuste_tbl %>% 
-  mutate(cubre = ifelse(sup >= prop & inf <= prop, 1, 0)) %>% 
-  group_by(estado, tipo, prop_obs, partidos) %>% 
-  summarise(precision = mean((sup - inf)/2),
-            cobertura = mean(cubre), error = 2 * sd(cubre)/sqrt(n())) 
-```
-
-```{r, echo=FALSE}
-### Esto no importa mucho, pero corregir para poner datos de corrida!!
-#resumen_sin <- resumen_sin %>% 
-#  bind_rows(resumen_con %>% filter(estado=="ZACATECAS", prop_obs == 0.9)) %>% 
-#  mutate(tipo = "sin ajuste")
-```
-
-```{r, echo=FALSE}
-resumen <- bind_rows(resumen_con, resumen_sin)
-```
-
-
-
-```{r, echo=FALSE}
-ggplot(resumen, aes(x = prop_obs, y = cobertura, ymin = cobertura - error,
-                    ymax = cobertura + error, colour = partidos)) +
-  geom_point() +
-  geom_line() +
-  geom_linerange() +
-  facet_grid(estado ~ tipo) +
-  ylab("Cobertura") + 
-  xlab("Proporción de muestra observada (censura no aleatoria)")
-```
 
 El incremento en tamaño de los intervalos producidos al introducir la corrección se muestra en la siguiente gráficas:
 
