@@ -24,9 +24,9 @@ $$\theta(1-\theta)(1-p_{obs})$$
 Aunque la constante de proporcionalidad varía de estado a estado, encontramos que en los peores casos la constante es de alrededor de
 $\alpha = 1/5$
 
-## Primeros resultados
+## Primeros resultados de cobertura
 
-En este ejemplo usaremos 1/10 como constante de proporcionalidad. Los datos de cobertura con y sin ajuste de sesgo (usando 100 muestras) se muestran
+ Los datos de cobertura con y sin ajuste de sesgo (usando 100 muestras) se muestran
 a continuación:
 
 
@@ -85,46 +85,6 @@ ggplot(resumen, aes(x = prop_obs, y = cobertura, ymin = cobertura - error,
   xlab("Proporción de muestra observada (censura no aleatoria)")
 ```
 
-
-
-
-## Ajuste por sesgo 
-
-En nuestro modelo bayesiano para la estimación del porcentaje de votos de cada candidato, modelamos los votos para un candidato en la casilla $i$ como
-$$y_{i} \sim \textrm{NegBin} \left( \mu_i, \phi_i \right)$$
-
-donde la media $\mu_i = n_i \theta_i$, $n_i$ es el tamaño de la lista nominal,y 
-
-$$\theta_i = h^{-1}(\beta_0 + \beta_{st(i)} + x_i^t\beta),$$
-donde $h$ es la función liga logit, $x_i$ son covariables asociadas
-a la casila $i$, y $\beta_st$ depende del estrato donde está la casilla.
-
-Una vez que simulamos de la posterior bajo este modelo, procedemos a
-simular el número de votos para **todas** las casillas del estado.
-
-Cuando la muestra está censurada por tiempo, sabemos que existe sesgo. Utilizaremos la cuantificación de 2018 mostrada arriba para, en el paso de **simulación**, utilizar
-
-$$\theta'_i = h(\beta_0 + \beta_{st} + x_i^t\beta + w)$$
-donde $w\sim N(0, s)$ se simula una vez para cada candidatos en cada simulación. 
-
-
-El valor $s$ se fija de acuerdo al sesgo que hemos observado en 
-elecciones pasadas en estas proporciones $\theta_i$ cuando existen muestras incompletas, considerando
-que (aproximando a primer orden):
-$$\theta'_i - \theta_i \approx \theta_i(1-\theta_i) w.$$
-Fijando entonces $\theta_i$ obtenemos que 2 desviaciones estándar de esta cantidad son
-aproximadamente
-
-$$2 \theta_i(1-\theta_i) s$$
-
-De forma que igualando con la cantidad de arriba, obtenemos
-$$s = \frac{1 - p_{obs}}{10}.$$
-Dada la naturaleza aproximada de este análisis, podemos decidir la constante de proporcionalidad con datos de de elecciones anteriores, en lugar de usar los argumentos que acabamos de mostrar.
-
-
-
-
-
 ## Precisión
 
 
@@ -171,6 +131,46 @@ resumen %>%
     .groups = "drop") %>% 
   knitr::kable()
 ```
+
+
+## Ajuste por sesgo 
+
+En nuestro modelo bayesiano para la estimación del porcentaje de votos de cada candidato, modelamos los votos para un candidato en la casilla $i$ como
+$$y_{i} \sim \textrm{NegBin} \left( \mu_i, \phi_i \right)$$
+
+donde la media $\mu_i = n_i \theta_i$, $n_i$ es el tamaño de la lista nominal,y 
+
+$$\theta_i = h^{-1}(\beta_0 + \beta_{st(i)} + x_i^t\beta),$$
+donde $h$ es la función liga logit, $x_i$ son covariables asociadas
+a la casila $i$, y $\beta_st$ depende del estrato donde está la casilla.
+
+Una vez que simulamos de la posterior bajo este modelo, procedemos a
+simular el número de votos para **todas** las casillas del estado.
+
+Cuando la muestra está censurada por tiempo, sabemos que existe sesgo. Utilizaremos la cuantificación de 2018 mostrada arriba para, en el paso de **simulación**, utilizar
+
+$$\theta'_i = h^{-1}(\beta_0 + \beta_{st} + x_i^t\beta + w)$$
+donde $w\sim N(0, s)$ se simula una vez para cada candidatos en cada simulación. 
+
+
+El valor $s$ se fija de acuerdo al sesgo que hemos observado en 
+elecciones pasadas en estas proporciones $\theta_i$ cuando existen muestras incompletas, considerando
+que (aproximando a primer orden):
+$$\theta'_i - \theta_i \approx \theta_i(1-\theta_i) w.$$
+Fijando entonces $\theta_i$ obtenemos que 2 desviaciones estándar de esta cantidad son
+aproximadamente
+
+$$2 \theta_i(1-\theta_i) s$$
+
+De forma que igualando con la cantidad de arriba, obtenemos
+$$s = \frac{1 - p_{obs}}{10}.$$
+Dada la naturaleza aproximada de este análisis, podemos decidir la constante de proporcionalidad con datos de de elecciones anteriores, en lugar de usar los argumentos que acabamos de mostrar.
+
+
+
+
+
+
 
 ## Ejemplos: intervalos con y sin corrección con simulación de llegadas
 
