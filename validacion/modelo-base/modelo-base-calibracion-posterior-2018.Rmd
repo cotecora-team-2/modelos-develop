@@ -12,6 +12,8 @@ params:
         value: 0.95
   simular: 
         value: FALSE
+  prop_observado:
+        value: 0.995
 ---
 
 # `r params$estado`
@@ -136,7 +138,9 @@ set.seed(8341)
 candidato <- "AMLO"
 if(params$simular){
   ajuste_muestras_2 <- map(1:100, function(rep){
-  muestra_1 <- obtener_muestra_marco(datos_ent, frac = params$frac, partidos = partidos)
+  muestra_1 <- obtener_muestra_marco(datos_ent, frac = params$frac, 
+                                     partidos = partidos, sims_llegadas = sims_llegadas,
+                                     prop_obs = params$prop_observado)
   sim_datos$y_f <- datos_ent[[candidato]]
   muestra_1$y <- muestra_1[["votos"]][[candidato]] 
   datos_1 <- c(parametros, muestra_1, sim_datos)
@@ -152,6 +156,8 @@ if(params$simular){
                           parallel_chains = 4,
                           show_messages = FALSE)
   y_out_df <- ajuste$draws() %>% as_draws_df()
+  rm(ajuste)
+  gc()
   y_out_df %>% select(y_out) %>% 
     mutate(rep = rep, total = total)
   })
