@@ -1,0 +1,439 @@
+---
+title: "Resumen cobertura bajo censura no aleatoria"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(patchwork)
+library(tidyverse)
+knitr::opts_chunk$set(echo = TRUE)
+theme_set(theme_minimal(base_size = 13))
+knitr::opts_chunk$set(echo = TRUE)
+# paquetes y codigo 
+
+```
+
+
+## Introducción
+
+En este documento describimos los resultados de un ajuste propuesta para la estimación
+de porcentaje de votos para candidatos bajo muestras censuradas por el tiempo. 
+
+Como discutimos en [presentaciones anteriores](https://sim-llegadas-3e5e7b.netlify.app/), la muestras censuradas por el tiempo típicamente no pueden considerarse como submuestras aleatorias de la muestra diseñada y
+presentan sesgos potenciales en la estimaciones que resultan en intervalos
+que pueden estar lejos de cumplir la cobertura nominal de 95%.
+
+
+
+
+
+## Primeros resultados de cobertura
+
+ Los datos de cobertura con y sin ajuste de sesgo (usando 100 muestras) se muestran
+a continuación:
+
+
+```{r, message=FALSE, echo=FALSE}
+archivos_sin_ajuste <- list.files(path = "resumenes/estados_presentacion_sinfbias/", pattern = "*.csv", full.names = TRUE)
+sin_ajuste_tbl <- map_df(archivos_sin_ajuste, function(archivo){
+  datos <- read_csv(archivo)
+  datos
+}) %>% filter(partidos!="CAND_IND_01") %>% 
+  mutate(tipo = "sin ajuste")
+resumen_sin <- sin_ajuste_tbl %>% 
+  mutate(cubre = ifelse(sup >= prop & inf <= prop, 1, 0)) %>% 
+  group_by(estado, tipo, prop_obs, partidos) %>% 
+  summarise(precision = mean((sup - inf)/2),
+            cobertura = mean(cubre), error = 2 * sd(cubre)/sqrt(n())) 
+```
+
+Número de muestras: `r max(sin_ajuste_tbl$rep)`
+
+
+```{r, message=FALSE, echo=FALSE}
+archivos_con_ajuste <- list.files(path = "resumenes/estados_presentacion_fbias10/", pattern = "*.csv", full.names = TRUE)
+con_ajuste_tbl <- map_df(archivos_con_ajuste, function(archivo){
+  datos <- read_csv(archivo)
+  datos
+}) %>% filter(partidos!="CAND_IND_01") %>% 
+  mutate(tipo = "con ajuste")
+resumen_con <- con_ajuste_tbl %>% 
+  mutate(cubre = ifelse(sup >= prop & inf <= prop, 1, 0)) %>% 
+  group_by(estado, tipo, prop_obs, partidos) %>% 
+  summarise(precision = mean((sup - inf)/2),
+            cobertura = mean(cubre), error = 2 * sd(cubre)/sqrt(n())) 
+```
+
+```{r, echo=FALSE}
+### Esto no importa mucho, pero corregir para poner datos de corrida!!
+#resumen_sin <- resumen_sin %>% 
+#  bind_rows(resumen_con %>% filter(estado=="ZACATECAS", prop_obs == 0.9)) %>% 
+#  mutate(tipo = "sin ajuste")
+```
+
+```{r, echo=FALSE}
+resumen <- bind_rows(resumen_con, resumen_sin)
+```
+
+
+
+```{r, echo=FALSE}
+ggplot(resumen, aes(x = prop_obs, y = cobertura, ymin = cobertura - error,
+                    ymax = cobertura + error, colour = partidos)) +
+  geom_point() +
+  geom_line() +
+  geom_linerange() +
+  facet_grid(estado ~ tipo) +
+  ylab("Cobertura") + 
+  xlab("Proporción de muestra observada (censura no aleatoria)")
+```
+
+## Precisión
+
+
+El incremento en tamaño de los intervalos producidos al introducir la corrección se muestra en la siguiente gráfica:
+
+```{r, echo=FALSE}
+ggplot(resumen %>% 
+         select(estado, prop_obs, partidos, tipo, precision) %>% 
+         pivot_wider(names_from = tipo, values_from = precision) %>% 
+         mutate(incremento_prec = `con ajuste` / `sin ajuste` - 1),
+  aes(x = prop_obs, y = 100*incremento_prec, colour = partidos)) +
+  geom_point() +
+  geom_line() +
+  facet_wrap(~ estado) +
+  xlab("Proporción de muestra observada (censura no aleatoria)") +
+  ylab("Incremento porcentual de precisión")
+```
+
+Las coberturas resumidas con y sin ajuste son (cobertura media
+y precisión máxima):
+
+```{r, echo=FALSE}
+tabla_con <- resumen %>% 
+  filter(tipo == "con ajuste") %>%
+  filter(prop_obs %in% c(0.6, 0.9)) %>% 
+  filter(partidos %in% c("AMLO", "JAMK", "RAC")) %>% 
+  group_by(prop_obs, estado) %>% 
+  summarise(precision_corregida = round(100*max(precision),1), 
+            cobertura_corregida = round(mean(cobertura),2),
+    .groups = "drop") 
+tabla_sin <- resumen %>% 
+  filter(tipo == "sin ajuste") %>%
+  filter(prop_obs %in% c(0.6, 0.9)) %>% 
+  group_by(prop_obs, estado) %>% 
+    filter(partidos %in% c("AMLO", "JAMK", "RAC")) %>% 
+  summarise(precision = round(100*max(precision),1), 
+            cobertura = round(mean(cobertura),2),
+    .groups = "drop")
+tabla <- left_join(tabla_con, tabla_sin)
+```
+
+Lo que representa una mejoría considerable a lo largo de las estimaciones de todos los estados, pues las coberturas resumidas sin ajuste son:
+
+
+```{r, echo = FALSE}
+tabla %>% knitr::kable()
+```
+
+
+## Sesgo absoluto 2018
+
+En [este documento](https://sim-llegadas-3e5e7b.netlify.app/) describimos el tamaño y patrón de sesgo producido por muestras censuradas en la elección presidencial de 2018, considerando sólo los estados
+con elección de gobernador en 2021. 
+
+En este documento se muestra (con un análisis exploratorio basado en simulaciones de tiempos de llegada y censura de acuerdo a esos tiempos) que
+el sesgo cuando hemos observado una proporción $p_{obs}$ de la muestra completa, cuando 
+buscamos estimar una proporción  $\theta$, es proporcional a
+$$\theta(1-\theta)(1-p_{obs})$$
+Aunque la constante de proporcionalidad varía de estado a estado, encontramos que en los peores casos la constante es de alrededor de
+$\alpha = 1/5$
+
+
+## Ajuste por sesgo 
+
+En nuestro modelo bayesiano para la estimación del porcentaje de votos de cada candidato, modelamos los votos para un candidato en la casilla $i$ como
+$$y_{i} \sim \textrm{NegBin} \left( \mu_i, \phi_i \right)$$
+
+donde la media $\mu_i = n_i \theta_i$, $n_i$ es el tamaño de la lista nominal,y 
+
+$$\theta_i = h^{-1}(\beta_0 + \beta_{st(i)} + x_i^t\beta),$$
+donde $h$ es la función liga logit, $x_i$ son covariables asociadas
+a la casila $i$, y $\beta_st$ depende del estrato donde está la casilla.
+
+Una vez que simulamos de la posterior bajo este modelo, procedemos a
+simular el número de votos para **todas** las casillas del estado.
+
+Cuando la muestra está censurada por tiempo, sabemos que existe sesgo. Utilizaremos la cuantificación de 2018 mostrada arriba para, en el paso de **simulación**, utilizar
+
+$$\theta'_i = h^{-1}(\beta_0 + \beta_{st} + x_i^t\beta + w)$$
+donde $w\sim N(0, s)$ se simula una vez para cada candidatos en cada simulación. 
+
+
+El valor $s$ se fija de acuerdo al sesgo que hemos observado en 
+elecciones pasadas en estas proporciones $\theta_i$ cuando existen muestras incompletas, considerando
+que (aproximando a primer orden):
+$$\theta'_i - \theta_i \approx \theta_i(1-\theta_i) w.$$
+Fijando entonces $\theta_i$ obtenemos que 2 desviaciones estándar de esta cantidad son
+aproximadamente
+
+$$2 \theta_i(1-\theta_i) s$$
+
+De forma que igualando con la cantidad de arriba, obtenemos
+$$s = \frac{1 - p_{obs}}{10}.$$
+Dada la naturaleza aproximada de este análisis, podemos decidir la constante de proporcionalidad con datos de de elecciones anteriores, en lugar de usar los argumentos que acabamos de mostrar.
+
+
+
+
+
+
+
+## Ejemplos: intervalos con y sin corrección con simulación de llegadas
+
+En estos dos ejemplos vemos cómo podrían verse los intervalos con y sin corrección conforme observamos muestras censuradas según los patrones de 2018:
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+estado <- "CHIHUAHUA"
+frac <- 0.06
+partidos <- c("AMLO", "JAMK", "RAC", "CAND_IND_02", "OTROS")
+source("R/prep_reportes.R")
+```
+
+```{r, echo=FALSE}
+source("R/funciones_calibracion.R")
+muestra_1 <- obtener_muestra_marco(datos_ent, frac = frac, seed = 19278, 
+                                   partidos = partidos)
+sim_datos$y_f <- datos_ent %>% select(any_of(partidos)) %>% 
+  as.matrix()
+muestra_1$y <- muestra_1[["votos"]] %>% 
+  as.matrix()
+muestra_1$p <- length(partidos)
+print(dim(muestra_1$y))
+datos_1 <- c(parametros, muestra_1, sim_datos)
+total <- apply(sim_datos$y_f, 2, sum)
+prop_votos <- total / sum(total)
+```
+
+```{r, echo=FALSE}
+ruta <- file.path("./stan/modelo_conjunto.stan")
+md <- cmdstan_model(ruta)
+```
+
+```{r, echo=FALSE}
+seed_muestra <- 422315
+seed_tiempos <- 2
+```
+
+
+Sin corrección:
+
+```{r, message=FALSE, warning=FALSE}
+prop_observadas <- c(0.025, 0.05, 0.25, 0.5, 0.6, 0.7, 0.8, 0.95, 0.99)
+```
+
+
+```{r sin ajuste, message=FALSE, warning=FALSE, echo=FALSE, cache=TRUE}
+ajustes_tiempo <- map(prop_observadas, function(prop){
+  muestra_1 <- obtener_muestra_marco(datos_ent, frac = frac, 
+                                     prop_obs = prop, seed = seed_muestra, 
+                                     sims_llegadas = sims_llegadas, 
+                                     id_selec = seed_tiempos,
+                                     partidos = partidos)
+  sim_datos$y_f <- datos_ent %>% select(any_of(partidos)) %>% 
+  as.matrix()
+  muestra_1$y <- muestra_1[["votos"]] %>% 
+  as.matrix()
+  muestra_1$p <- length(partidos)
+  print(prop)
+  print(dim(muestra_1$y))
+  datos_1 <- c(parametros, muestra_1, sim_datos)
+  datos_1$f_bias <- 10000
+  datos_1$p_obs <- 0.99
+  ajuste <- md$sample(data = datos_1, 
+                          seed = 2121,
+                          iter_sampling = 1000, iter_warmup = 1000,
+                          refresh = 0, 
+                          chains = 6, 
+                          adapt_delta = 0.98,
+                          max_treedepth = 12,
+                          parallel_chains = 6, 
+                          show_messages = FALSE,
+                          output_dir = "./cmdstan_out")
+  salida_tbl <- ajuste$draws("y_out") %>% as_draws_df() %>% 
+    as_tibble() %>% mutate(prop_obs = prop)
+  salida_tbl
+})
+```
+
+
+
+```{r, echo=FALSE, message=FALSE}
+ajustes_tiempos_tbl <- bind_rows(ajustes_tiempo) %>%
+  pivot_longer(cols = starts_with("y_out"), names_to = "variable",
+               values_to = "y_out") %>% 
+  group_by(.draw, .chain, .iteration, prop_obs) %>% 
+  mutate(prop_sim = y_out / sum(y_out))
+partidos_df <- tibble(variable = names(ajustes_tiempo[[1]])[1:length(partidos)],
+                      partidos = partidos,
+                      prop = prop_votos)  
+resumen_tiempos_tbl <- left_join(ajustes_tiempos_tbl, partidos_df) %>% 
+  group_by(prop_obs, partidos) %>% 
+  summarise(mediana = quantile(prop_sim, 0.5), 
+            inf = quantile(prop_sim, 0.025),
+            sup = quantile(prop_sim, 0.975),
+            prop_real = first(prop))
+g_1 <- ggplot(resumen_tiempos_tbl, aes(x = prop_obs, y = mediana,
+                                ymin = inf, ymax = sup,
+                                colour = partidos, fill = partidos)) +
+  geom_hline(aes(yintercept = prop_real)) +
+  geom_line() + geom_point() +
+  geom_ribbon(alpha =0.5, size = 0) +
+  labs(subtitle = "Sin corrección por sesgo (Chihuahua)") +
+  ylab("Proporción")
+```
+
+
+
+```{r conajuste, message=FALSE, warning=FALSE,  echo=FALSE, cache=TRUE}
+ajustes_tiempo <- map(prop_observadas, function(prop){
+  muestra_1 <- obtener_muestra_marco(datos_ent, frac = frac, 
+                                     prop_obs = prop, seed = seed_muestra, 
+                                     sims_llegadas = sims_llegadas, 
+                                     id_selec = seed_tiempos,
+                                     partidos = partidos)
+  sim_datos$y_f <- datos_ent %>% select(any_of(partidos)) %>% 
+  as.matrix()
+  muestra_1$y <- muestra_1[["votos"]] %>% 
+  as.matrix()
+  muestra_1$p <- length(partidos)
+  print(dim(muestra_1$y))
+  datos_1 <- c(parametros, muestra_1, sim_datos)
+  datos_1$f_bias <- 10
+  datos_1$p_obs <- prop
+  ajuste <- md$sample(data = datos_1, 
+                          seed = 2131,
+                          iter_sampling = 1000, iter_warmup = 1000,
+                          refresh = 0, 
+                          chains = 6, 
+                          adapt_delta = 0.98,
+                          max_treedepth = 12,
+                          parallel_chains = 6, 
+                          show_messages = FALSE,
+                          output_dir = "./cmdstan_out")
+  salida_tbl <- ajuste$draws("y_out") %>% as_draws_df() %>% 
+    as_tibble() %>% mutate(prop_obs = prop)
+  salida_tbl
+})
+```
+
+
+
+```{r, echo=FALSE, message=FALSE}
+ajustes_tiempos_tbl <- bind_rows(ajustes_tiempo) %>%
+  pivot_longer(cols = starts_with("y_out"), names_to = "variable",
+               values_to = "y_out") %>% 
+  group_by(.draw, .chain, .iteration, prop_obs) %>% 
+  mutate(prop_sim = y_out / sum(y_out))
+partidos_df <- tibble(variable = names(ajustes_tiempo[[1]])[1:length(partidos)],
+                      partidos = partidos,
+                      prop = prop_votos)  
+resumen_tiempos_tbl <- left_join(ajustes_tiempos_tbl, partidos_df) %>% 
+  group_by(prop_obs, partidos) %>% 
+  summarise(mediana = quantile(prop_sim, 0.5), 
+            inf = quantile(prop_sim, 0.025),
+            sup = quantile(prop_sim, 0.975),
+            prop_real = first(prop))
+g_2 <- ggplot(resumen_tiempos_tbl, aes(x = prop_obs, y = mediana,
+                                ymin = inf, ymax = sup,
+                                colour = partidos, fill = partidos)) +
+  geom_hline(aes(yintercept = prop_real)) +
+  geom_line() + geom_point() +
+  geom_ribbon(alpha =0.5, size = 0) +
+  labs(subtitle = "Con corrección por sesgo (Chihuahua), 1/10") +
+  ylab("")
+```
+
+```{r, echo=FALSE, fig.height=4.5, fig.width=7}
+g_1 + g_2 +  plot_layout(guides = 'collect')  & theme(legend.position = 'bottom')
+```
+
+## Apéndice
+
+Con un ajuste más grande de $s=(1-p_{obs})/7$, por ejemplo, obtenemos 
+
+```{r, message=FALSE, echo=FALSE}
+archivos_con_ajuste_7 <- list.files(path = "resumenes/estados_presentacion_fbias7/", pattern = "*.csv", full.names = TRUE)
+con_ajuste_tbl <- map_df(archivos_con_ajuste_7, function(archivo){
+  datos <- read_csv(archivo)
+  datos
+}) %>% filter(partidos!="CAND_IND_01") %>% 
+  mutate(tipo = "con ajuste")
+resumen_con <- con_ajuste_tbl %>% 
+  mutate(cubre = ifelse(sup >= prop & inf <= prop, 1, 0)) %>% 
+  group_by(estado, tipo, prop_obs, partidos) %>% 
+  summarise(precision = mean((sup - inf)/2),
+            cobertura = mean(cubre), error = 2 * sd(cubre)/sqrt(n())) 
+```
+
+
+```{r, echo=FALSE}
+resumen <- bind_rows(resumen_con, resumen_sin)
+```
+
+
+
+```{r, echo=FALSE}
+ggplot(resumen, aes(x = prop_obs, y = cobertura, ymin = cobertura - error,
+                    ymax = cobertura + error, colour = partidos)) +
+  geom_point() +
+  geom_line() +
+  geom_linerange() +
+  facet_grid(estado ~ tipo) +
+  ylab("Cobertura") + 
+  xlab("Proporción de muestra observada (censura no aleatoria)")
+```
+
+```{r, echo=FALSE}
+ggplot(resumen %>% 
+         select(estado, prop_obs, partidos, tipo, precision) %>% 
+         pivot_wider(names_from = tipo, values_from = precision) %>% 
+         mutate(incremento_prec = `con ajuste` / `sin ajuste` - 1),
+  aes(x = prop_obs, y = 100*incremento_prec, colour = partidos)) +
+  geom_point() +
+  geom_line() +
+  facet_wrap(~ estado) +
+  xlab("Proporción de muestra observada (censura no aleatoria)") +
+  ylab("Incremento porcentual de precisión")
+```
+
+Las coberturas resumidas con y sin ajuste son (cobertura media
+y precisión máxima):
+
+```{r, echo=FALSE}
+tabla_con <- resumen %>% 
+  filter(tipo == "con ajuste") %>%
+  filter(prop_obs %in% c(0.6, 0.9)) %>% 
+  filter(partidos %in% c("AMLO", "JAMK", "RAC")) %>% 
+  group_by(prop_obs, estado) %>% 
+  summarise(precision_corregida = round(100*max(precision),1), 
+            cobertura_corregida = round(mean(cobertura),2),
+    .groups = "drop") 
+tabla_sin <- resumen %>% 
+  filter(tipo == "sin ajuste") %>%
+  filter(prop_obs %in% c(0.6, 0.9)) %>% 
+  group_by(prop_obs, estado) %>% 
+    filter(partidos %in% c("AMLO", "JAMK", "RAC")) %>% 
+  summarise(precision = round(100*max(precision),1), 
+            cobertura = round(mean(cobertura),2),
+    .groups = "drop")
+tabla <- left_join(tabla_con, tabla_sin)
+```
+
+Lo que representa una mejoría considerable a lo largo de las estimaciones de todos los estados, pues las coberturas resumidas sin ajuste son:
+
+
+```{r, echo = FALSE}
+tabla %>% knitr::kable()
+```
