@@ -1,0 +1,5 @@
+*_files/
+stan/modelo_part
+datos/simulaciones_completo.rds
+datos/datos_prueba.json
+
