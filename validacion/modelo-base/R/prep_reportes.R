@@ -10,7 +10,8 @@ cb_palette <- c("#000000", "#E69F00", "#56B4E9", "#009E73",
 
 
 estados <- c("MICH", "CHIH", "COL", "ZAC", "NAY")
-partidos <- c("AMLO", "JAMK", "RAC", "CAND_IND_01", "CAND_IND_02", "OTROS")
+partidos_todos <- c("AMLO", "JAMK", "RAC", "CAND_IND_01", "CAND_IND_02", "OTROS")
+partidos <- c("AMLO", "JAMK", "RAC", "CAND_IND_02", "OTROS")
 
 sims <- read_rds("./datos/simulaciones_completo.rds")
 sims_llegadas <- sims %>% group_by(id, state_abbr) %>%
@@ -81,13 +82,18 @@ marco_conf_selec <- marco_conf %>% semi_join(estratif_selec) %>%
 datos_ent <- marco_conf_selec %>% filter(NOMBRE_ESTADO == estado) %>%
   # usar estratificacion anterior por ahora
   mutate(estrato_df = as.numeric(factor(estrato_df))) %>%
-  select(any_of(partidos), CLAVE_CASILLA, estrato_df,
+  select(any_of(partidos_todos), CLAVE_CASILLA, estrato_df,
          ln = LISTA_NOMINAL_CASILLA, componente = .fittedPC1, TIPO_CASILLA.x) %>%
   mutate(in_sample = 0, y_f = 0) %>%
   mutate(ln = ifelse(ln == 0, 1200, ln)) %>%
   mutate(casilla_esp = ifelse(TIPO_CASILLA.x == "S", 1, 0)) %>%
   mutate(no_casilla = row_number()) %>%
   ungroup()
+# agrupar partidos
+datos_ent <- datos_ent %>%
+  mutate(OTROS = OTROS + CAND_IND_01)
+datos_ent$CAND_IND_01 <- NULL
+
 sim_datos_lista <- list()
 x <- datos_ent %>%
   select(ln, componente) %>%

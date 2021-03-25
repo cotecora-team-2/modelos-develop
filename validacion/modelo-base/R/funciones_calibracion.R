@@ -20,7 +20,7 @@ obtener_muestra_marco <- function(marco_tbl, frac = 0.04, seed = NA,
                                                 seed = seed)
   if(prop_obs < 1.0){
     if(is.null(id_selec)){
-      id_selec <- sample(1:200, 1)
+      id_selec <- sample(1:500, 1)
     }
     muestra_1 <- muestra_1 %>% left_join(sims_llegadas %>% filter(id == id_selec),
                              by = c("CLAVE_CASILLA", "state_abbr"))
