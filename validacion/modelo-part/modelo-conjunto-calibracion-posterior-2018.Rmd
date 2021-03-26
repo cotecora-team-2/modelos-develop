@@ -5,7 +5,7 @@ date: "3/1/2021"
 output: html_document
 params:
   estado:
-    value: NAYARIT
+    value: COLIMA
   frac:
     value: 0.20
   adapt_delta:
@@ -13,9 +13,9 @@ params:
   simular:
     value: TRUE
   n_reps:
-    value: 50
+    value: 3
   prop_observado:
-    value: 0.9995
+    value: 0.995
 ---
 
 # `r params$estado`
@@ -96,7 +96,7 @@ ajuste$cmdstan_diagnose()
 
 ```{r}
 ajuste$summary("participacion") %>% select(q5, q95)
-sum(sim_datos$y_f) / sum(sim_datos$n_f)
+part_obs <- sum(sim_datos$y_f) / sum(sim_datos$n_f)
 ```
 
 
@@ -117,7 +117,7 @@ ggplot(ajuste_df, aes(x = value)) +
 ## Verificación posterior para porcentaje de votos
 
 ```{r}
-set.seed(8342)
+set.seed(7734)
 if(params$simular){
   ajuste_muestras <- map(1:params$n_reps, function(rep){
   muestra_1 <- obtener_muestra_marco(datos_ent, frac = params$frac,
@@ -138,18 +138,21 @@ if(params$simular){
                           seed = 21312,
                           iter_sampling = 1000, iter_warmup = 1000,
                           refresh = 0, 
-                          chains = 8,
-                          init = 0.01, 
+                          chains = 4,
+                          step_size = 0.02, 
                           adapt_delta = params$adapt_delta,
                           max_treedepth = 10,
-                          parallel_chains = 8,
+                          parallel_chains = 4,
                           show_messages = FALSE,
                           output_dir = "./cmdstan_out")
   y_out_df <- ajuste$draws(c("prop_votos", "y_out")) %>% 
     as_draws_df() %>% as_tibble()
+  part_df <- ajuste$draws("participacion") %>% 
+    as_draws_df() %>% as_tibble() %>% 
+    select(participacion) %>% mutate(rep = rep)
   y_out_df <- y_out_df %>% select(starts_with("prop_votos"), starts_with("y_out")) %>% 
     mutate(rep = rep)
-  list(votos = y_out_df, ajuste = ajuste)
+  list(votos = y_out_df, ajuste = ajuste, participacion = part_df)
   })
   write_rds(ajuste_muestras, 
             paste0("salidas/ajuste-posterior-muestras-conjunto-", 
@@ -184,3 +187,24 @@ ajuste_resumen_tbl %>%
             precision = mean((sup-inf)/(2))) 
 ```
 
+## Participación
+
+```{r}
+ajuste_muestras_part <- map(ajuste_muestras, "participacion")
+ajuste_resumen_tbl <- ajuste_muestras_part %>% bind_rows() %>%
+  group_by(rep) %>% 
+  summarise(sup = quantile(participacion, 0.975), inf = quantile(participacion, 0.025)) %>% 
+  mutate(part_obs = part_obs)
+ggplot(ajuste_resumen_tbl, aes(x = rep, ymin = inf, ymax = sup)) +
+  geom_hline(aes(yintercept = part_obs), colour = "salmon") +
+  geom_linerange() 
+```
+
+```{r}
+ajuste_resumen_tbl %>% 
+  summarise(cobertura_inf = mean(part_obs >= inf), 
+            cobertura_sup = mean(part_obs <= sup), 
+            cobertura = mean(part_obs >= inf  & part_obs <= sup),
+            n = n(),
+            precision = mean((sup-inf)/(2))) 
+```

@@ -87,7 +87,7 @@ model {
 }
 
 generated quantities {
-  int y_out[p];
+  real y_out[p];
   real prop_votos[p];
   real theta_f;
   real alpha_bn_f;
@@ -96,18 +96,21 @@ generated quantities {
   real total_cnt;
   real w_bias;
   real participacion;
+  real total_est[N_f];
 
   // total
   w_bias = normal_rng(0, (1 - p_obs) / f_bias);
   total_cnt = 0;
   for(i in 1:N_f){
       if(in_sample[i] == 1){
+        total_est[i] = total_f[i];
         total_cnt += total_f[i];
       } else {
         pred_f = dot_product(x_f[i,], beta[,p+1]);
         theta_f_total[i] = inv_logit(beta_st[stratum_f[i],p+1] + pred_f + w_bias);
         alpha_bn_f =  n_f[i] * theta_f_total[i];
-        total_cnt += neg_binomial_2_rng(alpha_bn_f , alpha_bn_f/kappa[stratum_f[i],p+1]);
+        total_est[i] = neg_binomial_2_rng(alpha_bn_f , alpha_bn_f/kappa[stratum_f[i],p+1]);
+        total_cnt += total_est[i];
       }
     }
 
@@ -121,8 +124,9 @@ generated quantities {
       } else {
         pred_f = dot_product(x_f[i,], beta[,k]);
         theta_f = inv_logit(beta_st[stratum_f[i],k] + pred_f + w_bias);
-        alpha_bn_f =  n_f[i] * theta_f * theta_f_total[i];
-        y_out[k] += neg_binomial_2_rng(alpha_bn_f , alpha_bn_f/kappa[stratum_f[i],k]);
+        //alpha_bn_f =  n_f[i] * theta_f * theta_f_total[i];
+        //y_out[k] += neg_binomial_2_rng(alpha_bn_f , alpha_bn_f/kappa[stratum_f[i],k]);
+        y_out[k] = y_out[k] + total_est[i] * theta_f;
       }
     }
   }
