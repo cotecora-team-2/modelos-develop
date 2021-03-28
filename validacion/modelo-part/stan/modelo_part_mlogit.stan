@@ -105,7 +105,8 @@ generated quantities {
   vector[p] y_out;
   real prop_votos[p];
   vector[p] theta_f;
-  real alpha_bn_f;
+  real alpha_bn_f_part;
+  vector[p] alpha_bn_f;
   vector[p] pred_f;
   real pred_f_part;
   real theta_f_total[N_f];
@@ -124,8 +125,8 @@ generated quantities {
       } else {
         pred_f_part = dot_product(x_f[i,], beta[,p+1]);
         theta_f_total[i] = inv_logit(beta_st_part[stratum_f[i]] + pred_f_part);
-        alpha_bn_f =  n_f[i] * theta_f_total[i];
-        total_est[i] = neg_binomial_2_rng(alpha_bn_f , alpha_bn_f/kappa_part[stratum_f[i]]);
+        alpha_bn_f_part =  n_f[i] * theta_f_total[i];
+        total_est[i] = neg_binomial_2_rng(alpha_bn_f_part , alpha_bn_f_part/kappa_part[stratum_f[i]]);
         total_cnt += total_est[i];
       }
     }
@@ -143,9 +144,12 @@ generated quantities {
         pred_f = to_vector(x_f[i,] * beta[,1:p]);
         //theta_f = inv_logit(beta_st[stratum_f[i],k] + pred_f + w_bias);
         theta_f = softmax(to_vector(beta_st[stratum_f[i],]) + pred_f);
-        //alpha_bn_f =  n_f[i] * theta_f * theta_f_total[i];
+        alpha_bn_f =  n_f[i] * theta_f * theta_f_total[i];
         //y_out[k] += neg_binomial_2_rng(alpha_bn_f , alpha_bn_f/kappa[stratum_f[i],k]);
-        y_out = y_out + total_est[i] * theta_f;
+        //y_out = y_out + total_est[i] * theta_f;
+        for(k in 1:p){
+          y_out[k] += neg_binomial_2_rng(alpha_bn_f[k], alpha_bn_f[k] / kappa[stratum_f[i], k]);
+        }
       }
     }
   //}

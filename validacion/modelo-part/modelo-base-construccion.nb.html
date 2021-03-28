@@ -311,6 +311,167 @@ quantile(1+x, probs = c(0.01, 0.025, 0.5, 0.975, 0.99)) </code></pre>
 <p>En Stan, el modelo es</p>
 <!-- rnb-text-end -->
 <!-- rnb-chunk-begin -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgYmFzaFxuY2F0IHN0YW4vbW9kZWxvX3BhcnRfbWxvZ2l0LnN0YW5cbmBgYCJ9 -->
+<pre class="bash"><code>cat stan/modelo_part_mlogit.stan</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-output-begin eyJkYXRhIjoiZGF0YSB7XG5cbiAgLy8gcG9wdWxhdGlvblxuICBpbnQgTl9mOyAvLyB0b3RhbCBudW1iZXIgb2Ygc3RhdGlvbnNcbiAgaW50IG5fc3RyYXRhX2Y7XG4gIGludCBuX2NvdmFyaWF0ZXNfZjtcbiAgaW50IHA7IC8vIG51bWJlciBvZiBwYXJ0aWVzXG4gIGludDxsb3dlcj0wPiB5X2ZbTl9mLCBwXSA7IC8vIG9ic2VydmVkIHZvdGUgY291bnRzXG4gIGludCBpbl9zYW1wbGVbTl9mXTtcbiAgdmVjdG9yW05fZl0gbl9mOyAvLyBub21pbmFsIGNvdW50c1xuICBpbnQgc3RyYXR1bV9mW05fZl07XG4gIG1hdHJpeFtOX2YsIG5fY292YXJpYXRlc19mXSB4X2Y7XG5cblxuICAvLyBzYW1wbGVcbiAgaW50IE47IC8vIG51bWJlciBvZiBzdGF0aW9uc1xuICBpbnQ8bG93ZXI9MD4geVtOLCBwXTsgLy8gb2JzZXJ2ZWQgdm90ZSBjb3VudHNcbiAgdmVjdG9yPGxvd2VyPTA+W05dIG47IC8vIG5vbWluYWwgY291bnRzXG4gIGludCBzdHJhdHVtW05dO1xuICBtYXRyaXhbTiwgbl9jb3ZhcmlhdGVzX2ZdIHg7XG4gIHJlYWw8bG93ZXI9MD4gcF9vYnM7XG5cbiAgLy8gY29uZlxuICB2ZWN0b3JbMl0gYmV0YV8wX3BhcmFtO1xuICByZWFsIHNpZ21hX3BhcmFtO1xuICB2ZWN0b3JbMl0ga2FwcGFfcGFyYW07XG4gIHJlYWwgc2lnbWFfY29lZnM7XG4gIHJlYWwgZl9iaWFzO1xufVxuXG50cmFuc2Zvcm1lZCBkYXRhIHtcbiAgaW50PGxvd2VyPTA+IHRvdGFsX2ZbTl9mXSA7IC8vIG9ic2VydmVkIHRvdGFsc1xuICBpbnQ8bG93ZXI9MD4gdG90YWxbTl0gOyAvLyBvYnNlcnZlZCB0b3RhbHNcblxuICBmb3IoaSBpbiAxOk5fZil7XG4gICAgdG90YWxfZltpXSA9IHN1bSh5X2ZbaSwgXSk7XG4gIH1cbiAgZm9yKGkgaW4gMTpOKXtcbiAgICB0b3RhbFtpXSA9IHN1bSh5W2ksIF0pO1xuICB9XG5cbn1cblxucGFyYW1ldGVycyB7XG4gIHJlYWwgYmV0YV8wW3ArMV07XG4gIG1hdHJpeFtuX2NvdmFyaWF0ZXNfZiwgcCsxXSBiZXRhO1xuICBtYXRyaXg8bG93ZXI9MD5bbl9zdHJhdGFfZiwgcF0ga2FwcGE7XG4gIHJlYWw8bG93ZXI9MD4gc2lnbWFbcCsxXTtcbiAgbWF0cml4W25fc3RyYXRhX2YscCsxXSBiZXRhX3N0X3JhdztcbiAgdmVjdG9yPGxvd2VyPTA+W25fc3RyYXRhX2ZdIGthcHBhX3BhcnQ7XG59XG5cbnRyYW5zZm9ybWVkIHBhcmFtZXRlcnMge1xuICAgdmVjdG9yW3BdIHRoZXRhW05dO1xuICAgdmVjdG9yW3BdIGFscGhhX2JuW05dO1xuICAgbWF0cml4W25fc3RyYXRhX2YscF0gYmV0YV9zdDtcbiAgIG1hdHJpeFtOLHBdIHByZWQ7XG4gICB2ZWN0b3JbTl0gdGhldGFfcGFydDtcbiAgIHZlY3RvcltOXSBhbHBoYV9ibl9wYXJ0O1xuICAgdmVjdG9yW25fc3RyYXRhX2ZdIGJldGFfc3RfcGFydDtcbiAgIHZlY3RvcltOXSBwcmVkX3BhcnQ7XG5cblxuICAgYmV0YV9zdF9wYXJ0ID0gYmV0YV8wW3ArMV0gKyBiZXRhX3N0X3JhdyBbLHArMV0qIHNpZ21hW3ArMV07XG4gICBwcmVkX3BhcnQgPSB4ICogYmV0YVssIHArMV07XG4gICB0aGV0YV9wYXJ0ID0gaW52X2xvZ2l0KGJldGFfc3RfcGFydFtzdHJhdHVtXSArIHByZWRfcGFydCk7XG4gICBhbHBoYV9ibl9wYXJ0ID0gdG9fdmVjdG9yKG4pIC4qIHRoZXRhX3BhcnQ7XG5cblxuICBwcmVkID0geCAqIGJldGFbLDE6NV07XG4gIGZvcihrIGluIDE6cCl7XG4gICBiZXRhX3N0WyxrXSA9IGJldGFfMFtrXSArIGJldGFfc3RfcmF3IFssa10qIHNpZ21hW2tdO1xuICB9XG5cbiAgZm9yKGkgaW4gMTpOKXtcbiAgICB0aGV0YVtpXSA9IHNvZnRtYXgodG9fdmVjdG9yKGJldGFfc3Rbc3RyYXR1bVtpXSwgXSkgKyB0b192ZWN0b3IocHJlZFtpLF0pKTtcbiAgICBhbHBoYV9ibltpXSA9IChuW2ldICogdGhldGFfcGFydFtpXSkgKiB0aGV0YVtpXSA7IC8vIG11bHQgYnkgcGFydCByYXRlXG4gIH1cblxuXG5cbn1cblxubW9kZWwge1xuXG4gIGJldGFfMCB+IG5vcm1hbChiZXRhXzBfcGFyYW1bMV0sIGJldGFfMF9wYXJhbVsyXSk7XG4gIGZvcihrIGluIDE6KHAgKyAxKSl7XG4gICAgYmV0YVssa10gfiBub3JtYWwoMCAsIHNpZ21hX2NvZWZzKTtcbiAgICBiZXRhX3N0X3Jhd1ssa10gfiBub3JtYWwoMCwgMSk7XG4gIH1cbiAgZm9yKGsgaW4gMTpwKXtcbiAgICAgIGthcHBhWyxrXSB+IGdhbW1hKGthcHBhX3BhcmFtWzFdLCBrYXBwYV9wYXJhbVsyXSk7XG4gIH1cbiAga2FwcGFfcGFydCB+IGdhbW1hKGthcHBhX3BhcmFtWzFdLCBrYXBwYV9wYXJhbVsyXSk7XG5cbiAgc2lnbWEgfiBub3JtYWwoMCwgc2lnbWFfcGFyYW0pO1xuXG4gIGZvcihpIGluIDE6Til7XG4gICAgeVtpLF0gfiBuZWdfYmlub21pYWxfMiggYWxwaGFfYm5baV0sIGFscGhhX2JuW2ldIC4vIHRvX3ZlY3RvcihrYXBwYVtzdHJhdHVtW2ldLCBdKSk7XG4gIH1cbiAgdG90YWwgfiBuZWdfYmlub21pYWxfMiggYWxwaGFfYm5fcGFydCwgYWxwaGFfYm5fcGFydCAgLi8ga2FwcGFfcGFydFtzdHJhdHVtXSk7XG59XG5cbmdlbmVyYXRlZCBxdWFudGl0aWVzIHtcbiAgdmVjdG9yW3BdIHlfb3V0O1xuICByZWFsIHByb3Bfdm90b3NbcF07XG4gIHZlY3RvcltwXSB0aGV0YV9mO1xuICByZWFsIGFscGhhX2JuX2Y7XG4gIHZlY3RvcltwXSBwcmVkX2Y7XG4gIHJlYWwgcHJlZF9mX3BhcnQ7XG4gIHJlYWwgdGhldGFfZl90b3RhbFtOX2ZdO1xuICByZWFsIHRvdGFsX2NudDtcbiAgcmVhbCB3X2JpYXM7XG4gIHJlYWwgcGFydGljaXBhY2lvbjtcbiAgcmVhbCB0b3RhbF9lc3RbTl9mXTtcblxuICAvLyB0b3RhbFxuICB3X2JpYXMgPSBub3JtYWxfcm5nKDAsICgxIC0gcF9vYnMpIC8gZl9iaWFzKTtcbiAgdG90YWxfY250ID0gMDtcbiAgZm9yKGkgaW4gMTpOX2Ype1xuICAgICAgaWYoaW5fc2FtcGxlW2ldID09IDEpe1xuICAgICAgICB0b3RhbF9lc3RbaV0gPSB0b3RhbF9mW2ldO1xuICAgICAgICB0b3RhbF9jbnQgKz0gdG90YWxfZltpXTtcbiAgICAgIH0gZWxzZSB7XG4gICAgICAgIHByZWRfZl9wYXJ0ID0gZG90X3Byb2R1Y3QoeF9mW2ksXSwgYmV0YVsscCsxXSk7XG4gICAgICAgIHRoZXRhX2ZfdG90YWxbaV0gPSBpbnZfbG9naXQoYmV0YV9zdF9wYXJ0W3N0cmF0dW1fZltpXV0gKyBwcmVkX2ZfcGFydCk7XG4gICAgICAgIGFscGhhX2JuX2YgPSAgbl9mW2ldICogdGhldGFfZl90b3RhbFtpXTtcbiAgICAgICAgdG90YWxfZXN0W2ldID0gbmVnX2Jpbm9taWFsXzJfcm5nKGFscGhhX2JuX2YgLCBhbHBoYV9ibl9mL2thcHBhX3BhcnRbc3RyYXR1bV9mW2ldXSk7XG4gICAgICAgIHRvdGFsX2NudCArPSB0b3RhbF9lc3RbaV07XG4gICAgICB9XG4gICAgfVxuXG4vLyBwYXJ0eSB2b3RlXG4gLy9mb3IoayBpbiAxOnApe1xuICAgIC8vd19iaWFzID0gbm9ybWFsX3JuZygwLCAoMSAtIHBfb2JzKSAvIGZfYmlhcyk7XG4gICAgZm9yKGsgaW4gMTpwKXtcbiAgICAgIHlfb3V0W2tdID0gMC4wO1xuICAgIH1cbiAgICBmb3IoaSBpbiAxOk5fZil7XG4gICAgICBpZihpbl9zYW1wbGVbaV0gPT0gMSl7XG4gICAgICAgIHlfb3V0ID0geV9vdXQgKyB0b192ZWN0b3IoeV9mW2ksXSk7XG4gICAgICB9IGVsc2Uge1xuICAgICAgICBwcmVkX2YgPSB0b192ZWN0b3IoeF9mW2ksXSAqIGJldGFbLDE6cF0pO1xuICAgICAgICAvL3RoZXRhX2YgPSBpbnZfbG9naXQoYmV0YV9zdFtzdHJhdHVtX2ZbaV0sa10gKyBwcmVkX2YgKyB3X2JpYXMpO1xuICAgICAgICB0aGV0YV9mID0gc29mdG1heCh0b192ZWN0b3IoYmV0YV9zdFtzdHJhdHVtX2ZbaV0sXSkgKyBwcmVkX2YpO1xuICAgICAgICAvL2FscGhhX2JuX2YgPSAgbl9mW2ldICogdGhldGFfZiAqIHRoZXRhX2ZfdG90YWxbaV07XG4gICAgICAgIC8veV9vdXRba10gKz0gbmVnX2Jpbm9taWFsXzJfcm5nKGFscGhhX2JuX2YgLCBhbHBoYV9ibl9mL2thcHBhW3N0cmF0dW1fZltpXSxrXSk7XG4gICAgICAgIHlfb3V0ID0geV9vdXQgKyB0b3RhbF9lc3RbaV0gKiB0aGV0YV9mO1xuICAgICAgfVxuICAgIH1cbiAgLy99XG4gIGZvcihrIGluIDE6cCl7XG4gICAgcHJvcF92b3Rvc1trXSA9IHlfb3V0W2tdIC8gdG90YWxfY250O1xuICB9XG4gIHBhcnRpY2lwYWNpb24gPSB0b3RhbF9jbnQgLyBzdW0obl9mKTtcbn1cbiJ9 -->
+<pre><code>data {
+
+  // population
+  int N_f; // total number of stations
+  int n_strata_f;
+  int n_covariates_f;
+  int p; // number of parties
+  int&lt;lower=0&gt; y_f[N_f, p] ; // observed vote counts
+  int in_sample[N_f];
+  vector[N_f] n_f; // nominal counts
+  int stratum_f[N_f];
+  matrix[N_f, n_covariates_f] x_f;
+
+
+  // sample
+  int N; // number of stations
+  int&lt;lower=0&gt; y[N, p]; // observed vote counts
+  vector&lt;lower=0&gt;[N] n; // nominal counts
+  int stratum[N];
+  matrix[N, n_covariates_f] x;
+  real&lt;lower=0&gt; p_obs;
+
+  // conf
+  vector[2] beta_0_param;
+  real sigma_param;
+  vector[2] kappa_param;
+  real sigma_coefs;
+  real f_bias;
+}
+
+transformed data {
+  int&lt;lower=0&gt; total_f[N_f] ; // observed totals
+  int&lt;lower=0&gt; total[N] ; // observed totals
+
+  for(i in 1:N_f){
+    total_f[i] = sum(y_f[i, ]);
+  }
+  for(i in 1:N){
+    total[i] = sum(y[i, ]);
+  }
+
+}
+
+parameters {
+  real beta_0[p+1];
+  matrix[n_covariates_f, p+1] beta;
+  matrix&lt;lower=0&gt;[n_strata_f, p] kappa;
+  real&lt;lower=0&gt; sigma[p+1];
+  matrix[n_strata_f,p+1] beta_st_raw;
+  vector&lt;lower=0&gt;[n_strata_f] kappa_part;
+}
+
+transformed parameters {
+   vector[p] theta[N];
+   vector[p] alpha_bn[N];
+   matrix[n_strata_f,p] beta_st;
+   matrix[N,p] pred;
+   vector[N] theta_part;
+   vector[N] alpha_bn_part;
+   vector[n_strata_f] beta_st_part;
+   vector[N] pred_part;
+
+
+   beta_st_part = beta_0[p+1] + beta_st_raw [,p+1]* sigma[p+1];
+   pred_part = x * beta[, p+1];
+   theta_part = inv_logit(beta_st_part[stratum] + pred_part);
+   alpha_bn_part = to_vector(n) .* theta_part;
+
+
+  pred = x * beta[,1:5];
+  for(k in 1:p){
+   beta_st[,k] = beta_0[k] + beta_st_raw [,k]* sigma[k];
+  }
+
+  for(i in 1:N){
+    theta[i] = softmax(to_vector(beta_st[stratum[i], ]) + to_vector(pred[i,]));
+    alpha_bn[i] = (n[i] * theta_part[i]) * theta[i] ; // mult by part rate
+  }
+
+
+
+}
+
+model {
+
+  beta_0 ~ normal(beta_0_param[1], beta_0_param[2]);
+  for(k in 1:(p + 1)){
+    beta[,k] ~ normal(0 , sigma_coefs);
+    beta_st_raw[,k] ~ normal(0, 1);
+  }
+  for(k in 1:p){
+      kappa[,k] ~ gamma(kappa_param[1], kappa_param[2]);
+  }
+  kappa_part ~ gamma(kappa_param[1], kappa_param[2]);
+
+  sigma ~ normal(0, sigma_param);
+
+  for(i in 1:N){
+    y[i,] ~ neg_binomial_2( alpha_bn[i], alpha_bn[i] ./ to_vector(kappa[stratum[i], ]));
+  }
+  total ~ neg_binomial_2( alpha_bn_part, alpha_bn_part  ./ kappa_part[stratum]);
+}
+
+generated quantities {
+  vector[p] y_out;
+  real prop_votos[p];
+  vector[p] theta_f;
+  real alpha_bn_f;
+  vector[p] pred_f;
+  real pred_f_part;
+  real theta_f_total[N_f];
+  real total_cnt;
+  real w_bias;
+  real participacion;
+  real total_est[N_f];
+
+  // total
+  w_bias = normal_rng(0, (1 - p_obs) / f_bias);
+  total_cnt = 0;
+  for(i in 1:N_f){
+      if(in_sample[i] == 1){
+        total_est[i] = total_f[i];
+        total_cnt += total_f[i];
+      } else {
+        pred_f_part = dot_product(x_f[i,], beta[,p+1]);
+        theta_f_total[i] = inv_logit(beta_st_part[stratum_f[i]] + pred_f_part);
+        alpha_bn_f =  n_f[i] * theta_f_total[i];
+        total_est[i] = neg_binomial_2_rng(alpha_bn_f , alpha_bn_f/kappa_part[stratum_f[i]]);
+        total_cnt += total_est[i];
+      }
+    }
+
+// party vote
+ //for(k in 1:p){
+    //w_bias = normal_rng(0, (1 - p_obs) / f_bias);
+    for(k in 1:p){
+      y_out[k] = 0.0;
+    }
+    for(i in 1:N_f){
+      if(in_sample[i] == 1){
+        y_out = y_out + to_vector(y_f[i,]);
+      } else {
+        pred_f = to_vector(x_f[i,] * beta[,1:p]);
+        //theta_f = inv_logit(beta_st[stratum_f[i],k] + pred_f + w_bias);
+        theta_f = softmax(to_vector(beta_st[stratum_f[i],]) + pred_f);
+        //alpha_bn_f =  n_f[i] * theta_f * theta_f_total[i];
+        //y_out[k] += neg_binomial_2_rng(alpha_bn_f , alpha_bn_f/kappa[stratum_f[i],k]);
+        y_out = y_out + total_est[i] * theta_f;
+      }
+    }
+  //}
+  for(k in 1:p){
+    prop_votos[k] = y_out[k] / total_cnt;
+  }
+  participacion = total_cnt / sum(n_f);
+}</code></pre>
+<!-- rnb-output-end -->
 <!-- rnb-chunk-end -->
 <!-- rnb-text-begin -->
 </div>

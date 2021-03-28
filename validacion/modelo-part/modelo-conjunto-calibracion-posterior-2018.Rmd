@@ -7,9 +7,9 @@ params:
   estado:
     value: NAYARIT
   frac:
-    value: 0.15
+    value: 0.20
   adapt_delta:
-    value: 0.98
+    value: 0.8
   simular:
     value: TRUE
   n_reps:
@@ -50,7 +50,7 @@ Obtener una muestra
 ```{r}
 source("R/funciones_calibracion.R", local = knitr::knit_global())
 muestra_1 <- obtener_muestra_marco(datos_ent, frac = params$frac, 
-                                   seed = 53811,  partidos = partidos,
+                                   seed = 532811,  partidos = partidos,
                                    sims_llegadas = sims_llegadas, 
                                    prop_obs = params$prop_observado,
                                    id_selec = 15)
@@ -76,13 +76,13 @@ datos_1$f_bias <- 10
 datos_1$p_obs <- params$prop_observado
 ajuste <- md$sample(data = datos_1, 
                           seed = 211,
-                          iter_sampling = 400, iter_warmup = 400,
+                          iter_sampling = 200, iter_warmup = 300,
                           refresh = 100, 
-                          chains = 4, 
+                          chains = 6, 
                           adapt_delta = 0.8,
                           max_treedepth = 10,
                           step_size = 0.02,
-                          parallel_chains = 4, 
+                          parallel_chains = 6, 
                           show_messages = TRUE)
 ```
 
@@ -116,13 +116,16 @@ ggplot(ajuste_df, aes(x = value)) +
 ## Verificación posterior para porcentaje de votos
 
 ```{r}
-set.seed(77124)
+#set.seed(554)
+set.seed(83)
 if(params$simular){
   ajuste_muestras <- map(1:params$n_reps, function(rep){
   muestra_1 <- obtener_muestra_marco(datos_ent, frac = params$frac,
                     partidos = partidos, sims_llegadas = sims_llegadas, 
                     prop_obs = params$prop_observado)
   sim_datos$y_f <- datos_ent %>% select(all_of(partidos)) %>% as.matrix()
+  ###
+  ###
   muestra_1$y <- muestra_1[["votos"]] %>% as.matrix() 
   muestra_1$p <- ncol(muestra_1$y)
   datos_1 <- c(parametros, muestra_1, sim_datos)
@@ -135,13 +138,13 @@ if(params$simular){
   print(rep)
   ajuste <- md$sample(data = datos_1, 
                           seed = 21312,
-                          iter_sampling = 400, iter_warmup = 400,
+                          iter_sampling = 500, iter_warmup = 300,
                           refresh = 0, 
-                          chains = 4,
+                          chains = 8,
                           step_size = 0.02, 
                           adapt_delta = 0.8,
                           max_treedepth = 10,
-                          parallel_chains = 4,
+                          parallel_chains = 8,
                           show_messages = FALSE)
   y_out_df <- ajuste$draws(c("prop_votos", "y_out", "participacion")) %>% 
     as_draws_df() %>% as_tibble()
@@ -167,6 +170,8 @@ ajuste_resumen_tbl <- ajuste_muestras_2 %>% bind_rows() %>%
   pivot_longer(cols = starts_with("prop_votos"), names_to = "variable", values_to = "prop") %>% 
   group_by(rep, variable) %>% 
   summarise(sup = quantile(prop, 0.975), inf = quantile(prop, 0.025)) %>% 
+  #summarise(media = mean(prop), ee = sd(prop)) %>% 
+  #mutate(inf = media - 2 * ee, sup = media + 2 * ee) %>% 
   left_join(partidos_df, by = "variable")  
 ggplot(ajuste_resumen_tbl, aes(x = rep, ymin = inf, ymax = sup)) +
   geom_hline(aes(yintercept = prop), colour = "salmon") +
