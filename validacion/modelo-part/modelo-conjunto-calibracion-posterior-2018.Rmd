@@ -11,7 +11,7 @@ params:
   adapt_delta:
     value: 0.8
   simular:
-    value: TRUE
+    value: FALSE
   n_reps:
     value: 50
   prop_observado:
@@ -169,9 +169,9 @@ ajuste_muestras_2 <- map(ajuste_muestras, "votos")
 ajuste_resumen_tbl <- ajuste_muestras_2 %>% bind_rows() %>%
   pivot_longer(cols = starts_with("prop_votos"), names_to = "variable", values_to = "prop") %>% 
   group_by(rep, variable) %>% 
-  summarise(sup = quantile(prop, 0.975), inf = quantile(prop, 0.025)) %>% 
-  #summarise(media = mean(prop), ee = sd(prop)) %>% 
-  #mutate(inf = media - 2 * ee, sup = media + 2 * ee) %>% 
+  #summarise(sup = quantile(prop, 0.975), inf = quantile(prop, 0.025)) %>% 
+  summarise(media = mean(prop), ee = sd(prop)) %>% 
+  mutate(inf = media - 2 * ee, sup = media + 2 * ee) %>% 
   left_join(partidos_df, by = "variable")  
 ggplot(ajuste_resumen_tbl, aes(x = rep, ymin = inf, ymax = sup)) +
   geom_hline(aes(yintercept = prop), colour = "salmon") +
@@ -210,3 +210,41 @@ ajuste_resumen_tbl %>%
             n = n(),
             precision = mean((sup-inf)/(2))) 
 ```
+
+
+## Comparación con estimador de razón
+
+```{r, cache=TRUE}
+set.seed(83)
+estratos_tbl <- datos_ent %>%
+    dplyr::group_by(estrato_df) %>%
+    dplyr::summarise(n_stratum = n())
+res_razon <- map_df(1:50, function(rep){
+muestra_1 <- quickcountmx::select_sample_prop(datos_ent,
+                                                stratum = estrato_df,
+                                                frac = 0.20, seed=NA)
+rat <- ratio_estimation(muestra_1, data_stratum = estratos_tbl, stratum = estrato_df,
+                 n_stratum = n_stratum, any_of(partidos), std_errors = TRUE, B = 150)
+rat$rep <- rep
+rat
+})
+```
+
+```{r}
+ggplot(res_razon %>% left_join(partidos_df %>% rename(party = partidos, prop_obs= prop)) %>% 
+         filter(rep<=50), 
+       aes(x = rep, y = prop, ymin= prop-2*std_error, ymax=prop+2*std_error)) +
+  geom_linerange() + 
+  geom_hline(aes(yintercept = 100*prop_obs, colour = "red")) +
+  facet_wrap(~ party, scales = "free_y")
+```
+```{r}
+res_razon %>% 
+  left_join(partidos_df %>% rename(party = partidos, prop_obs= prop)) %>% 
+         filter(rep<=50) %>% 
+  group_by(party) %>% 
+  summarise(cobertura = mean(prop-2*std_error <= 100*prop_obs &
+                             prop+2*std_error >= 100*prop_obs),
+            precision = 2*mean(std_error))
+```
+
