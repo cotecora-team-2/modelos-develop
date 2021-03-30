@@ -7,7 +7,7 @@ data {
   int p; // number of parties
   int<lower=0> y_f[N_f, p] ; // observed vote counts
   int in_sample[N_f];
-  vector[N_f] n_f; // nominal counts
+  vector<lower=0>[N_f] n_f; // nominal counts
   int stratum_f[N_f];
   matrix[N_f, n_covariates_f] x_f;
 
@@ -42,40 +42,47 @@ transformed data {
 }
 
 parameters {
-  real beta_0[p+1];
-  matrix[n_covariates_f, p+1] beta;
+  row_vector[p] beta_0;
+  real beta_0_part;
+  matrix[n_covariates_f, p] beta;
+  vector[n_covariates_f] beta_part;
   matrix<lower=0>[n_strata_f, p] kappa;
-  real<lower=0> sigma[p+1];
-  matrix[n_strata_f,p+1] beta_st_raw;
+  vector<lower=0>[p] sigma;
+  real<lower=0> sigma_part;
+  matrix[n_strata_f, p] beta_st_raw;
+  vector[n_strata_f] beta_st_part_raw;
   vector<lower=0>[n_strata_f] kappa_part;
 }
 
 transformed parameters {
-   vector[p] theta[N];
-   vector[p] alpha_bn[N];
-   matrix[n_strata_f,p] beta_st;
    matrix[N,p] pred;
+   vector[p] theta[N];
+   vector[N] alpha_bn[p];
+   matrix[n_strata_f,p] beta_st;
    vector[N] theta_part;
    vector[N] alpha_bn_part;
    vector[n_strata_f] beta_st_part;
    vector[N] pred_part;
 
 
-   beta_st_part = beta_0[p+1] + beta_st_raw [,p+1]* sigma[p+1];
-   pred_part = x * beta[, p+1];
+   beta_st_part = beta_0_part + beta_st_part_raw * sigma_part;
+   pred_part = x * beta_part;
    theta_part = inv_logit(beta_st_part[stratum] + pred_part);
-   alpha_bn_part = to_vector(n) .* theta_part;
+   alpha_bn_part = n .* theta_part;
 
+    beta_st = rep_matrix(beta_0, n_strata_f) + diag_post_multiply(beta_st_raw, sigma);
 
-  pred = x * beta[,1:5];
-  for(k in 1:p){
-   beta_st[,k] = beta_0[k] + beta_st_raw [,k]* sigma[k];
-  }
+    pred = sigma_coefs * (x * beta);
 
-  for(i in 1:N){
-    theta[i] = softmax(to_vector(beta_st[stratum[i], ]) + to_vector(pred[i,]));
-    alpha_bn[i] = (n[i] * theta_part[i]) * theta[i] ; // mult by part rate
-  }
+    for(i in 1:N){
+      theta[i] = softmax(to_vector(beta_st[stratum[i], ] + pred[i,]));
+      // vectorize ****
+      //alpha_bn[i] = (n[i] * theta_part[i]) * theta[i] ; // mult by part rate
+    }
+    for(k in 1:p){
+      alpha_bn[k] = (n .* theta_part) .* to_vector(theta[,k]) ;
+    }
+
 
 
 
@@ -84,19 +91,25 @@ transformed parameters {
 model {
 
   beta_0 ~ normal(beta_0_param[1], beta_0_param[2]);
-  for(k in 1:(p + 1)){
-    beta[,k] ~ normal(0 , sigma_coefs);
-    beta_st_raw[,k] ~ normal(0, 1);
+  beta_0_part ~ normal(beta_0_param[1], beta_0_param[2]);
+
+  for(k in 1:p){
+    beta[,k] ~ std_normal();
+    beta_st_raw[,k] ~ std_normal();
   }
+  beta_st_part_raw ~ std_normal();
+
   for(k in 1:p){
       kappa[,k] ~ gamma(kappa_param[1], kappa_param[2]);
   }
   kappa_part ~ gamma(kappa_param[1], kappa_param[2]);
 
   sigma ~ normal(0, sigma_param);
+  sigma_part ~ normal(0, sigma_param);
 
-  for(i in 1:N){
-    y[i,] ~ neg_binomial_2( alpha_bn[i], alpha_bn[i] ./ to_vector(kappa[stratum[i], ]));
+
+  for(k in 1:p){
+    y[,k] ~ neg_binomial_2( alpha_bn[k], alpha_bn[k] ./ to_vector(kappa[stratum, k]));
   }
   total ~ neg_binomial_2( alpha_bn_part, alpha_bn_part  ./ kappa_part[stratum]);
 }
@@ -123,7 +136,7 @@ generated quantities {
         total_est[i] = total_f[i];
         total_cnt += total_f[i];
       } else {
-        pred_f_part = dot_product(x_f[i,], beta[,p+1]);
+        pred_f_part = dot_product(x_f[i,], beta_part);
         theta_f_total[i] = inv_logit(beta_st_part[stratum_f[i]] + pred_f_part);
         alpha_bn_f_part =  n_f[i] * theta_f_total[i];
         total_est[i] = neg_binomial_2_rng(alpha_bn_f_part , alpha_bn_f_part/kappa_part[stratum_f[i]]);
@@ -141,9 +154,8 @@ generated quantities {
       if(in_sample[i] == 1){
         y_out = y_out + to_vector(y_f[i,]);
       } else {
-        pred_f = to_vector(x_f[i,] * beta[,1:p]);
-        //theta_f = inv_logit(beta_st[stratum_f[i],k] + pred_f + w_bias);
-        theta_f = softmax(to_vector(beta_st[stratum_f[i],]) + pred_f);
+        pred_f = to_vector(x_f[i,] * beta);
+        theta_f = softmax(to_vector(beta_st[stratum_f[i],]) + pred_f + w_bias);
         alpha_bn_f =  n_f[i] * theta_f * theta_f_total[i];
         //y_out[k] += neg_binomial_2_rng(alpha_bn_f , alpha_bn_f/kappa[stratum_f[i],k]);
         //y_out = y_out + total_est[i] * theta_f;
