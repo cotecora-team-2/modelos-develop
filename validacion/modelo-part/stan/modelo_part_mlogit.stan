@@ -76,8 +76,6 @@ transformed parameters {
 
     for(i in 1:N){
       theta[i] = softmax(to_vector(beta_st[stratum[i], ] + pred[i,]));
-      // vectorize ****
-      //alpha_bn[i] = (n[i] * theta_part[i]) * theta[i] ; // mult by part rate
     }
     for(k in 1:p){
       alpha_bn[k] = (n .* theta_part) .* to_vector(theta[,k]) ;
