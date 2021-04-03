@@ -62,11 +62,11 @@ marco_conf <- map_df(estratif_conf, function(x){
                                     tam_ln))
 })
 
-## colapsar estratos chicos
+## colapsar estratos chicos y agregar Michoacán sin colapsar
 marco_conf <- left_join(marco_conf, estratos_colapsado %>%
-      select(state_abbr, estratificacion_num, estrato_df, estrato_df_colapsado))
-marco_conf <- marco_conf %>% select(-estrato_df) %>%
-  rename(estrato_df = estrato_df_colapsado)
+      select(state_abbr, estratificacion_num, estrato_df, estrato_df_colapsado)) %>%
+      mutate(estrato_df_colapsado = ifelse(state_abbr == "MICH", estrato_df, estrato_df_colapsado))
+
 
 
 estratif_selec <- tibble(
@@ -76,17 +76,24 @@ estratif_selec <- tibble(
 
 marco_conf_selec <- marco_conf %>% semi_join(estratif_selec) %>%
   mutate(NOMBRE_ESTADO = ifelse(state_abbr == "MICH", "MICHOACAN", NOMBRE_ESTADO))
+## seleccionar estratificación para Michoacán
+
+
 
 ## filtrar estado seleccionado
 
 datos_ent <- marco_conf_selec %>% filter(NOMBRE_ESTADO == estado) %>%
   # usar estratificacion anterior por ahora
-  mutate(estrato_df = as.numeric(factor(estrato_df))) %>%
+  mutate(estrato_df = as.numeric(factor(estrato_df_colapsado))) %>%
   select(any_of(partidos_todos), CLAVE_CASILLA, estrato_df,
-         ln = LISTA_NOMINAL_CASILLA, componente = .fittedPC1, TIPO_CASILLA.x) %>%
+         ln = LISTA_NOMINAL_CASILLA, componente = .fittedPC1, TIPO_CASILLA.x,
+         comp_votos, tipo_seccion) %>%
   mutate(in_sample = 0, y_f = 0) %>%
   mutate(ln = ifelse(ln == 0, 1200, ln)) %>%
+  mutate(log_ln = log(ln)) %>%
   mutate(casilla_esp = ifelse(TIPO_CASILLA.x == "S", 1, 0)) %>%
+  mutate(tipo_2 = as.numeric(tipo_seccion == 2)) %>%
+  mutate(tipo_3 = as.numeric(tipo_seccion == 3)) %>%
   mutate(no_casilla = row_number()) %>%
   ungroup()
 # agrupar partidos
@@ -96,7 +103,9 @@ datos_ent$CAND_IND_01 <- NULL
 
 sim_datos_lista <- list()
 x <- datos_ent %>%
-  select(ln, componente) %>%
+  mutate(comp_s_1 = splines::ns(componente, df=2)[,1]) %>%
+  mutate(comp_s_2 = splines::ns(componente, df=2)[,2]) %>%
+  select(all_of(covariables)) %>%
   as.matrix()
 x_f <- scale(x)
 sim_datos_lista$x_f <- x_f
