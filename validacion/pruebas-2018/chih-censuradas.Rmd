@@ -1,0 +1,59 @@
+---
+title: "Prueba Chihuahua 2018, muestras censuradas"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+library(quickcountmx)
+chih_tbl <- read_rds("./datos/chihuahua.rds")
+```
+
+```{r}
+estado <- "CHIHUAHUA"
+source("R/prep_reportes.R")
+final_computos <- datos_ent %>% 
+  select(any_of(c("AMLO", "JAMK", "RAC", "CAND_IND_02", "OTROS"))) %>%
+  mutate(TOTAL_VOTOS_CALCULADOS = AMLO + JAMK + RAC + CAND_IND_02 + OTROS) %>% 
+  summarise(across(where(is.numeric), ~ sum(.x, na.rm = TRUE))) %>% 
+  mutate(across(where(is.numeric), ~ .x / TOTAL_VOTOS_CALCULADOS))%>% 
+  pivot_longer(cols = everything(), names_to = "candidato", values_to = "prop")
+final_computos
+```
+
+
+
+```{r}
+muestra <- chih_tbl$muestras[[500]]
+prop_obs <- chih_tbl$props_obs[500]
+
+fit_estimates <- hb_estimation(muestra, stratum = estrato_df,
+                      id_station = no_casilla,
+                      sampling_frame =  datos_ent,
+                      parties = all_of(c("AMLO", "JAMK", "RAC", "CAND_IND_02", "OTROS")),
+                      covariates = componente,
+                      chains = 1, num_iter = 500, # increase chains and num_iter
+                      seed = 123, prop_obs = prop_obs)
+fit_estimates$estimates
+```
+
+
+```{r, message=FALSE, include=FALSE}
+resultados <- map_df(1:nrow(chih_tbl), function(x){
+  muestras <- chih_tbl$muestras[[x]]
+  prop_obs <- chih_tbl$props_obs[x]
+  print(x)
+  fit_estimates <- hb_estimation(muestras, stratum = estrato_df,
+                      id_station = no_casilla,
+                      sampling_frame =  datos_ent,
+                      parties = all_of(c("AMLO", "JAMK", "RAC", "CAND_IND_02", "OTROS")),
+                      covariates = componente,
+                      chains = 6, num_iter = 400, 
+                      seed = 123, prop_obs = prop_obs)
+  mutate(fit_estimates$estimates, indice_muestra = x)
+})
+```
+
+
+
+
