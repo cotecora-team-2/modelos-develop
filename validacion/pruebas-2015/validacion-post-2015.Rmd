@@ -1,0 +1,165 @@
+---
+title: "EStimación estatal 2015"
+author: "Cotecora equipo 2 - modelo binomial negativo jerárquico"
+date: "4/16/2021"
+output: html_document
+params:
+  estado:
+    value: CHIHUAHUA
+  marco:
+    value: chih_2015
+  n_reps:
+    value: 25
+  censura:
+    value: 0.6
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(quickcountmx)
+```
+
+```{r}
+estado <- params$estado
+marco <- params$marco
+```
+
+
+```{r}
+rutas <- list.files("../../../estratificacion-simulacion/datos/muestras/", full.names = TRUE)
+muestras_tbl <- map_df(rutas, ~read_rds(.x))
+muestras_estado <- filter(muestras_tbl, NOMBRE_ESTADO == estado)
+```
+
+```{r}
+data(list = list(params$marco))
+assign("marco_2015", eval(parse(text = marco)), envir = .GlobalEnv)
+marco_2015 <- mutate(marco_2015,
+                    id_casilla = paste0(ID_DISTRITO_15, SECCION_15, CASILLA, LISTA_NOMINAL_15),
+                    no_casilla = row_number()) %>% 
+  mutate(ln = ifelse(LISTA_NOMINAL_15 == 0, 1200, LISTA_NOMINAL_15)) %>% 
+  mutate(tipo_m = ifelse(TIPO_SECCION == "MIXTO(A)", 1, 0)) %>% 
+  mutate(tipo_r = ifelse(TIPO_SECCION == "RURAL", 1, 0)) %>% 
+  mutate(componente = ifelse(abs(.fittedPC1) > 5, 5*sign(.fittedPC1), .fittedPC1))
+id_tbl <- marco_2015 %>% select(id_casilla, no_casilla) 
+procesar_muestra <- function(muestra_tbl, marco_2015){
+  # agregar id y no casilla para unir con marco
+  muestra_tbl <- mutate(muestra_tbl,
+    id_casilla = paste0(ID_DISTRITO, SECCION, CASILLA, LISTA_NOMINAL)) %>% 
+    left_join(marco_2015 %>% select(c(all_of(contains("CAND")), OTROS, id_casilla, no_casilla)))
+  muestra_tbl
+}
+partidos <- marco_2015 %>% select(c(any_of(contains("CAND")), OTROS)) %>% 
+  names()
+```
+
+Cómputos finales
+
+```{r}
+totales <- marco_2015 %>% select(c(any_of(contains("CAND")), OTROS)) %>% 
+  as.matrix() %>% apply(1, sum)
+conteo <- marco_2015 %>% 
+  mutate(TOTAL_VOTOS_CALCULADOS = totales)
+final_computos <- conteo %>% 
+  select(c(any_of(contains("CAND")), OTROS, TOTAL_VOTOS_CALCULADOS)) %>%
+  summarise(across(where(is.numeric), ~ sum(.x, na.rm = TRUE))) %>% 
+  mutate(across(where(is.numeric), ~ .x / TOTAL_VOTOS_CALCULADOS))%>% 
+  pivot_longer(cols = everything(), names_to = "candidato", values_to = "prop") %>% 
+  filter(candidato!="TOTAL_VOTOS_CALCULADOS")
+final_computos <- final_computos %>% 
+  rename(party = candidato, prop_obs = prop)
+final_computos
+```
+
+
+
+```{r m90, include=FALSE}
+set.seed(8834)
+reps <- sample(1:100, params$n_reps)
+muestras_90 <- filter(muestras_estado, censura == 0.9)
+est_completa_tbl <- map(reps, function(rep){
+  muestra_completa <- muestras_90$`muestras aleatorias`[[rep]]
+  muestra_no_obs <- muestras_90$`muestras censuradas`[[rep]]
+  muestra_1 <- anti_join(ungroup(muestra_completa), muestra_no_obs)
+  prop_obs <- 0.9
+  muestra <- procesar_muestra(muestra_1, marco_2015)
+  if(any(is.na(muestra$no_casilla))){
+    stop("Casillas no reconocidas")
+  }
+  fit_estimates <- hb_estimation(muestra, stratum = estrato_df,
+                      id_station = no_casilla,
+                      sampling_frame =  marco_2015,
+                      parties = all_of(partidos),
+                      covariates = all_of(c("componente","tipo_m", "tipo_r")),
+                      chains = 6, num_iter = 600, # increase chains and num_iter
+                      seed = 123, prop_obs = prop_obs)
+  est <- fit_estimates$estimates
+  est$rep <- rep
+  est
+})
+```
+
+
+```{r}
+est_completa_tbl <- est_completa_tbl %>% bind_rows() %>% 
+  left_join(final_computos)
+ggplot(est_completa_tbl, aes(x = rep, ymin = inf, ymax = sup)) +
+  geom_hline(aes(yintercept = prop_obs), colour = "red") +
+  geom_linerange() + facet_wrap(~party, scales = "free_y") +
+  labs(subtitle = "Muestra observada: 0.9")
+```
+
+```{r}
+est_completa_tbl %>% 
+  mutate(cubre = prop_obs>=inf & prop_obs <= sup) %>% 
+  group_by(party) %>% 
+  summarise(prop_obs = first(prop_obs),
+            media = mean(median),
+            cobertura = mean(cubre))
+```
+
+
+```{r mcens, include=FALSE}
+muestras_censuradas <- filter(muestras_estado, censura == params$censura)
+est_censurada_tbl <- map(reps, function(rep){
+  muestra_completa <- muestras_censuradas$`muestras aleatorias`[[rep]]
+  muestra_no_obs <- muestras_censuradas$`muestras censuradas`[[rep]]
+  muestra_1 <- anti_join(ungroup(muestra_completa), muestra_no_obs)
+  prop_obs <- params$censura
+  muestra <- procesar_muestra(muestra_1, marco_2015)
+  if(any(is.na(muestra$no_casilla))){
+    stop("Casillas no reconocidas")
+  }
+  fit_estimates <- hb_estimation(muestra, stratum = estrato_df,
+                      id_station = no_casilla,
+                      sampling_frame =  marco_2015,
+                      parties = all_of(partidos),
+                      covariates = all_of(c("componente","tipo_m", "tipo_r")),
+                      chains = 6, num_iter = 600, # increase chains and num_iter
+                      seed = 123, prop_obs = prop_obs)
+  est <- fit_estimates$estimates
+  est$rep <- rep
+  est
+})
+```
+
+
+```{r}
+est_censurada_tbl <- est_censurada_tbl %>% bind_rows() %>% 
+  left_join(final_computos)
+ggplot(est_censurada_tbl, aes(x = rep, ymin = inf, ymax = sup)) +
+  geom_hline(aes(yintercept = prop_obs), colour = "red") +
+  geom_linerange() + facet_wrap(~party, scales = "free_y") +
+  labs(subtitle = paste("Muestra observada : ", 0.60))
+```
+
+
+```{r}
+est_censurada_tbl %>% 
+  mutate(cubre = prop_obs>=inf & prop_obs <= sup) %>% 
+  group_by(party) %>% 
+  summarise(prop_obs = first(prop_obs),
+            media = mean(median),
+            cobertura = mean(cubre))
+```
