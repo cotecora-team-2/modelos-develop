@@ -103,8 +103,9 @@ datos_ent$CAND_IND_01 <- NULL
 
 sim_datos_lista <- list()
 x <- datos_ent %>%
-  mutate(comp_s_1 = splines::ns(componente, df=2)[,1]) %>%
-  mutate(comp_s_2 = splines::ns(componente, df=2)[,2]) %>%
+  mutate(comp_s_1 = splines::ns(componente, knots=c(-1.5, 1.5))[,1]) %>%
+  mutate(comp_s_2 = splines::ns(componente, knots=c(-1.5, 1.5))[,2]) %>%
+  mutate(comp_s_3 = splines::ns(componente, knots=c(-1.5, 1.5))[,3]) %>%
   select(all_of(covariables)) %>%
   as.matrix()
 x_f <- scale(x)
